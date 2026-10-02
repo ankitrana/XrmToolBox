@@ -10,6 +10,8 @@
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <license type="expression">MIT</license>
     <icon>images\icon.png</icon>
+    <!-- iconUrl as well: the XrmToolBox portal checklist asks for an icon URL -->
+    <iconUrl>https://raw.githubusercontent.com/ankitrana/XrmToolBox/main/UnmanagedLayerFinder/package/icon.png</iconUrl>
     <readme>docs\README.md</readme>
     <projectUrl>https://github.com/ankitrana/XrmToolBox/tree/main/UnmanagedLayerFinder</projectUrl>
     <repository type="git" url="https://github.com/ankitrana/XrmToolBox.git" />
