@@ -1,0 +1,44 @@
+﻿<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deployment Doctor - Account Main</title>
+<style>
+  :root { --problem:#fde2e1; --problem-b:#c62828; --warning:#fff6d6; --warning-b:#b7791f; --ok:#e6f4ea; --ok-b:#2e7d32; --info:#eef2f7; --info-b:#5f6b7a; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; color:#1f2328; background:#f6f8fa; margin:0; padding:24px; }
+  @media (max-width:600px) { body { padding:16px; } table.grid th, table.grid td { padding:6px; } }
+  .scroll { overflow-x:auto; }
+  .wrap { max-width:1100px; margin:0 auto; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  h2 { font-size:16px; margin:28px 0 8px; }
+  .sub { color:#57606a; margin-bottom:16px; }
+  .card { background:#fff; border:1px solid #d0d7de; border-radius:8px; padding:16px; }
+  .meta td { padding:3px 16px 3px 0; vertical-align:top; overflow-wrap:anywhere; }
+  .meta td:first-child { color:#57606a; white-space:nowrap; }
+  .verdict { border-left:6px solid; border-radius:8px; padding:14px 16px; margin:16px 0; font-size:15px; }
+  .verdict.Problem { background:var(--problem); border-color:var(--problem-b); }
+  .verdict.Warning { background:var(--warning); border-color:var(--warning-b); }
+  .verdict.Ok, .verdict.Info { background:var(--ok); border-color:var(--ok-b); }
+  .verdict .next { margin-top:8px; font-weight:600; }
+  table.grid { width:100%; border-collapse:collapse; background:#fff; border:1px solid #d0d7de; border-radius:8px; overflow:hidden; }
+  table.grid th { text-align:left; background:#f0f3f6; font-weight:600; padding:8px; border-bottom:1px solid #d0d7de; font-size:13px; }
+  table.grid td { padding:8px; border-bottom:1px solid #eaeef2; vertical-align:top; font-size:13px; overflow-wrap:anywhere; }
+  tr.Problem td { background:var(--problem); } tr.Warning td { background:var(--warning); } tr.Ok td { background:var(--ok); }
+  .badge { display:inline-block; padding:1px 8px; border-radius:10px; font-size:12px; font-weight:600; color:#fff; }
+  .badge.Problem { background:var(--problem-b); } .badge.Warning { background:var(--warning-b); } .badge.Ok { background:var(--ok-b); } .badge.Info { background:var(--info-b); }
+  ol.plan li { margin:6px 0; }
+  pre { background:#fff; border:1px solid #d0d7de; border-radius:8px; padding:12px; overflow:auto; font-size:12px; white-space:pre-wrap; word-break:break-word; }
+  details { margin:8px 0; } summary { cursor:pointer; font-weight:600; }
+  .foot { color:#57606a; font-size:12px; margin-top:28px; }
+  .notice { background:var(--info); border:1px solid #c9d1d9; border-radius:8px; padding:8px 12px; font-size:13px; color:#3d4651; margin-bottom:16px; }
+</style></head><body><div class="wrap">
+<h1>Deployment Doctor report</h1>
+<div class="sub">Why doesn't the deployed change show in the target environment?</div>
+<div class="notice">&#128274; Contains configuration metadata from your environments (no record data, no credentials). Share only with people allowed to see it.</div>
+<div class="card"><table class="meta"><tr><td>Form</td><td>Account Main (Main)</td></tr><tr><td>Table</td><td>account</td></tr><tr><td>Form id</td><td>8448b78f-8f42-454e-8e2a-f8196b0419af</td></tr><tr><td>Solution</td><td>Contoso Sales (ContosoSales) v1.0.0.4 [managed]</td></tr><tr><td>Target</td><td>Contoso UAT</td></tr><tr><td>Dev (source)</td><td>Contoso Dev</td></tr><tr><td>Run on</td><td>2026-10-02 14:30</td></tr></table></div><div class="verdict Problem">Most likely cause: Unmanaged layer in Target. Someone customized this form directly in Target (2026-09-28 14:12). The unmanaged (Active) layer sits on top of every managed layer and overrides the parts it changed.<div class="next">Next step: If the Target change is wanted, make it in Dev first. Then remove the unmanaged layer in Target. (or click &#39;Remove unmanaged layer&#39;)</div></div><h2>What to do next</h2><div class="card"><ol class="plan"><li><span class="badge Problem">Problem</span> <b>Unmanaged layer in Target:</b> If the Target change is wanted, make it in Dev first. Then remove the unmanaged layer in Target.</li><li><span class="badge Problem">Problem</span> <b>Target vs Dev:</b> Fix the cause above, then deploy again.</li><li><span class="badge Warning">Warning</span> <b>Form order:</b> Switch to this form in the form selector, or change the form order in Dev and deploy.</li></ol></div><h2>All checks</h2><div class="scroll"><table class="grid"><tr><th>Result</th><th>Check</th><th>What was found</th><th>How to fix</th></tr><tr class="Problem"><td><span class="badge Problem">Problem</span></td><td>Unmanaged layer in Target</td><td>Someone customized this form directly in Target (2026-09-28 14:12). The unmanaged (Active) layer sits on top of every managed layer and overrides the parts it changed.</td><td>If the Target change is wanted, make it in Dev first. Then remove the unmanaged layer in Target.</td></tr><tr class="Problem"><td><span class="badge Problem">Problem</span></td><td>Target vs Dev</td><td>Target&#39;s published form differs from Dev in 3 place(s). See &#39;Differences: Dev vs Target&#39;; the other findings explain why.</td><td>Fix the cause above, then deploy again.</td></tr><tr class="Warning"><td><span class="badge Warning">Warning</span></td><td>Form order</td><td>Several main forms are open to everyone; the default is &#39;Account&#39; (form order 1). Users only get this form if they switch to it.</td><td>Switch to this form in the form selector, or change the form order in Dev and deploy.</td></tr><tr class="Ok"><td><span class="badge Ok">Ok</span></td><td>Published in Dev</td><td>No unpublished changes on this form in Dev.</td><td></td></tr><tr class="Ok"><td><span class="badge Ok">Ok</span></td><td>Form in Dev solution</td><td>Form is in &#39;ContosoSales&#39; in Dev.</td><td></td></tr><tr class="Ok"><td><span class="badge Ok">Ok</span></td><td>Form in Target solution</td><td>Form is part of &#39;ContosoSales&#39; in Target.</td><td></td></tr><tr class="Ok"><td><span class="badge Ok">Ok</span></td><td>Package content</td><td>Your solution&#39;s layer in Target has Dev&#39;s current version of the form, so the import itself was fine.</td><td></td></tr><tr class="Ok"><td><span class="badge Ok">Ok</span></td><td>Form is active</td><td>The form is active in Target.</td><td></td></tr><tr class="Ok"><td><span class="badge Ok">Ok</span></td><td>Form in apps</td><td>Included in: Contoso Sales Hub. Apps not listed show all forms of the table.</td><td></td></tr></table></div><h2>Solution layers in Target (top layer first)</h2><div class="scroll"><table class="grid"><tr><th>Order</th><th>Solution</th><th>Publisher</th><th>Written</th><th>Note</th></tr><tr class="Problem"><td>3</td><td>Active</td><td></td><td>2026-09-28 14:12</td><td>Unmanaged (Active)</td></tr><tr class="Ok"><td>2</td><td>ContosoSales</td><td>Contoso</td><td></td><td>Your solution</td></tr><tr class=""><td>1</td><td>System</td><td>Microsoft</td><td></td><td></td></tr></table></div><h2>Differences: Dev vs Target</h2><pre>Dev vs Target (published form):
+  Only in Dev: Field &#39;cts_approvaldate&#39;  (in section &#39;general/summary&#39;, label &#39;Approval Date&#39;, visible=true, disabled=false)
+  Changed: Field &#39;name&#39;
+      Dev: in section &#39;general/summary&#39;, label &#39;Account Name&#39;, visible=true, disabled=false
+      Target: in section &#39;general/summary&#39;, label &#39;Name&#39;, visible=false, disabled=false
+  Changed: Field order in &#39;general/summary&#39;
+      Dev: name, telephone1, cts_approvaldate
+      Target: telephone1, name
+</pre><h2>Form XML</h2><p class="sub">Not included in this report (it can contain control settings such as iframe URLs or web resource parameters). The differences above already list every field, section and script that differs.</p><div class="foot">Generated by Deployment Doctor v0.2.2 for XrmToolBox, created by Ankit Rana. github.com/ankitrana/XrmToolBox</div></div></body></html>
