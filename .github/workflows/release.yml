@@ -1,0 +1,79 @@
+name: Release to NuGet
+
+# Publishes one tool to nuget.org (and from there to the XrmToolBox Tool Library).
+# Run it by hand: Actions > Release to NuGet > Run workflow > pick the tool.
+# Uses nuget.org Trusted Publishing (policy: owner ankitrana, repo XrmToolBox, workflow release.yml,
+# environment nuget), so no API key is stored anywhere.
+on:
+  workflow_dispatch:
+    inputs:
+      tool:
+        description: Tool to publish
+        required: true
+        type: choice
+        options:
+          - UnmanagedLayerFinder
+          - DeploymentDoctor
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    environment: nuget
+    permissions:
+      id-token: write   # OIDC token, exchanged for a 1-hour NuGet API key
+      contents: write   # push the <Tool>-v<version> tag
+    env:
+      TOOL: ${{ inputs.tool }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Check package version = assembly version
+        id: version
+        shell: pwsh
+        run: |
+          $csproj = [xml](Get-Content "$env:TOOL/src/$env:TOOL/$env:TOOL.csproj")
+          $nuspec = [xml](Get-Content "$env:TOOL/package/$env:TOOL.nuspec")
+          $asm = ($csproj.Project.PropertyGroup | Where-Object { $_.Version }).Version
+          $pkg = $nuspec.package.metadata.version
+          if ($asm -ne $pkg) { throw "Version mismatch: csproj $asm, nuspec $pkg. XrmToolBox shows a never-ending update when they differ." }
+          "Publishing $env:TOOL $pkg"
+          "version=$pkg" >> $env:GITHUB_OUTPUT
+
+      - name: Build
+        run: dotnet build ${{ env.TOOL }}/src/${{ env.TOOL }}/${{ env.TOOL }}.csproj -c Release
+
+      - name: Pack
+        shell: pwsh
+        run: |
+          $pkg = Join-Path $PWD "$env:TOOL/package"
+          dotnet pack "$env:TOOL/src/$env:TOOL/$env:TOOL.csproj" -c Release --no-build `
+            -p:NuspecFile="$pkg/$env:TOOL.nuspec" -p:NuspecBasePath="$pkg" -o out
+
+      - name: Keep the package as a build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.TOOL }}-nupkg
+          path: out/*.nupkg
+
+      - name: NuGet login (OIDC -> temporary API key)
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: ankitrana   # nuget.org profile name (public), not an email
+
+      - name: Push to nuget.org
+        shell: pwsh
+        run: |
+          $nupkg = Get-ChildItem out/*.nupkg | Select-Object -First 1
+          dotnet nuget push $nupkg.FullName --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json
+
+      - name: Tag the release
+        shell: pwsh
+        run: |
+          $tag = "$env:TOOL-v${{ steps.version.outputs.version }}"
+          git tag $tag
+          git push origin $tag
