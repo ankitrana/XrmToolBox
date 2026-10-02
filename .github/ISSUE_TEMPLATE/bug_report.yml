@@ -1,0 +1,42 @@
+name: Bug report
+description: Something doesn't work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a problem. Please do not include confidential data (org URLs, customer names, record data).
+  - type: dropdown
+    id: tool
+    attributes:
+      label: Which tool?
+      options:
+        - Unmanaged Layer Finder
+        - Deployment Doctor
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Tool version
+      description: Shown in the tool's About box.
+      placeholder: "1.3.0"
+    validations:
+      required: true
+  - type: input
+    id: xtb
+    attributes:
+      label: XrmToolBox version
+      placeholder: "1.2026.9.78"
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: Steps to reproduce, what you expected, and what you saw instead.
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Error message / details
+      description: Paste the error popup text or any relevant details shown by the tool.

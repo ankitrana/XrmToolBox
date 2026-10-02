@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
+  <metadata>
+    <!-- Package id must be unique on nuget.org. Keep it the same for every future version. -->
+    <id>AnkitRana.XrmToolBox.UnmanagedLayerFinder</id>
+    <version>1.3.0</version>
+    <title>Unmanaged Layer Finder</title>
+    <authors>Ankit Rana</authors>
+    <owners>Ankit Rana</owners>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <license type="expression">MIT</license>
+    <icon>images\icon.png</icon>
+    <readme>docs\README.md</readme>
+    <projectUrl>https://github.com/ankitrana/XrmToolBox/tree/main/UnmanagedLayerFinder</projectUrl>
+    <repository type="git" url="https://github.com/ankitrana/XrmToolBox.git" />
+    <description>Find unmanaged (Active) layers on solution components in Dataverse / Dynamics 365, with when and who changed them. Filter by solution type, publisher, and component type; export to CSV. Created by Ankit Rana.</description>
+    <summary>Find unmanaged layers on solution components, with when and who.</summary>
+    <releaseNotes>1.3.0: Component type filter. 1.2.0: Cloud flow categories, environment variable values, connection references and other dynamic component types. 1.1.0: Solution type / publisher / Microsoft filters.</releaseNotes>
+    <copyright>Copyright (c) 2026 Ankit Rana</copyright>
+    <tags>XrmToolBox Plugins Dataverse Dynamics365 Solution Layers Unmanaged ALM</tags>
+    <dependencies>
+      <group targetFramework=".NETFramework4.8">
+        <dependency id="XrmToolBoxPackage" version="1.2025.10.74" />
+      </group>
+    </dependencies>
+  </metadata>
+  <files>
+    <!-- XrmToolBox installs everything under lib\net48\Plugins into its Plugins folder -->
+    <file src="..\src\UnmanagedLayerFinder\bin\Release\UnmanagedLayerFinder.dll" target="lib\net48\Plugins\UnmanagedLayerFinder.dll" />
+    <file src="icon.png" target="images\icon.png" />
+    <file src="README.md" target="docs\README.md" />
+  </files>
+</package>

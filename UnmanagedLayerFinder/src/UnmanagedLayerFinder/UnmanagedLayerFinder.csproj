@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>UnmanagedLayerFinder</RootNamespace>
+    <AssemblyName>UnmanagedLayerFinder</AssemblyName>
+    <!-- Bump on every deploy: XrmToolBox caches plugin scans by file name + version (Plugins\manifest.json) -->
+    <Version>1.3.0</Version>
+    <Authors>Ankit Rana</Authors>
+    <Company>Ankit Rana</Company>
+    <Product>Unmanaged Layer Finder</Product>
+    <Description>XrmToolBox tool to find unmanaged (Active) layers on solution components, with when and who. Created by Ankit Rana.</Description>
+    <Copyright>Copyright (c) 2026 Ankit Rana</Copyright>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <OutputPath>bin\$(Configuration)\</OutputPath>
+    <NoWarn>$(NoWarn);MSB3277</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="XrmToolBoxPackage" Version="1.2025.10.74" />
+    <PackageReference Include="MscrmTools.Xrm.Connection" Version="1.2025.9.64" />
+  </ItemGroup>
+
+</Project>
