@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net48</TargetFramework>
@@ -7,7 +7,7 @@
     <RootNamespace>DeploymentDoctor</RootNamespace>
     <AssemblyName>DeploymentDoctor</AssemblyName>
     <!-- Bump on every deploy: XrmToolBox caches plugin scans by file name + version (Plugins\manifest.json) -->
-    <Version>0.3.2</Version>
+    <Version>1.0.0</Version>
     <Authors>Ankit Rana</Authors>
     <Company>Ankit Rana</Company>
     <Product>Deployment Doctor</Product>

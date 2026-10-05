@@ -3,7 +3,7 @@
   <metadata>
     <!-- Package id must be unique on nuget.org. Keep it the same for every future version. -->
     <id>AnkitRana.XrmToolBox.DeploymentDoctor</id>
-    <version>0.3.2</version>
+    <version>1.0.0</version>
     <title>Deployment Doctor</title>
     <authors>Ankit Rana</authors>
     <owners>Ankit Rana</owners>
@@ -17,7 +17,7 @@
     <repository type="git" url="https://github.com/ankitrana/XrmToolBox.git" />
     <description>Find out why a form, view, web resource, workflow or cloud flow deployed with a managed solution does not show in the target environment: unpublished changes in Dev, component missing from the solution, unmanaged layers, other managed solutions on top, staged upgrades, flows turned off or without connections, inactive forms and views, app membership, form roles and order. Compares Dev and Target and offers confirmed fixes. Created by Ankit Rana.</description>
     <summary>Why does my deployed change not show? Diagnose and fix it for forms, views, web resources and flows.</summary>
-    <releaseNotes>0.3.2: Tool description covers all component types. 0.3.1: Fix buttons explain the change first (user it runs as, undo, advice, manual steps) and need a tick before running. 0.3.0: Views, web resources and processes (classic workflows, business rules, actions, cloud flows) besides forms. 0.2.2: Export options: form XML and environment URLs are left out of HTML reports unless you tick them; sharing note in every report. 0.2.1: No false "Package content" problem when Target already matches Dev. 0.2.0: Export report as HTML or CSV, copy as text; Next step shown with the verdict. 0.1.0: First version. Form diagnosis with Dev vs Target comparison and confirmed fixes.</releaseNotes>
+    <releaseNotes>1.0.0: First public release. Diagnoses why a change deployed with a managed solution does not show in the target environment, for forms, views, web resources and processes (classic workflows, business rules, actions, cloud flows). Dev vs Target compare, solution layers, publish state, solution membership, flow state and connection references; confirmed fixes that show the user they run as; HTML/CSV/text reports.</releaseNotes>
     <copyright>Copyright (c) 2026 Ankit Rana</copyright>
     <tags>XrmToolBox Plugins Dataverse Dynamics365 Solution Layers Deployment Forms Views WebResources Workflows PowerAutomate ALM</tags>
     <dependencies>
