@@ -2,6 +2,16 @@
 
 All notable changes to Deployment Doctor. Versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.0.0] - 2026-10-05
+First public release (NuGet and XrmToolBox Tool Library). Same features as 0.3.2:
+- Forms, views, web resources and processes (classic workflows, business rules, actions, business process flows, cloud and desktop flows).
+- Generic checks: publish state in Dev, solution membership in Dev and Target, solution version, solution layers (unmanaged layer, managed solutions above yours, staged upgrade), Dev vs Target vs your layer content.
+- Type checks: form state, apps, roles and order; view state, default view and apps; web resource usage; flow on/off, connection references and duplicate copies.
+- Fixes (remove unmanaged layer, publish in Dev, add to Dev solution, turn on in Target), each explained in a "Before you continue" window with the user it runs as.
+- Reports: HTML, CSV, text; full content and URLs only on request.
+
+Not yet verified on every environment type: "Remove unmanaged layer" for web resources and processes (Dataverse may refuse it; the error is shown and nothing changes).
+
 ## [0.3.2] - 2026-10-02
 ### Changed
 - Tool description in XrmToolBox and the NuGet package README now cover all component types, not only forms.

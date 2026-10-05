@@ -19,7 +19,7 @@ C:\Ankit Rana\Claude Work\
 | Tool | Folder | Status |
 |---|---|---|
 | Unmanaged Layer Finder | `UnmanagedLayerFinder\` | v1.3.0 on GitHub and pushed to NuGet 2026-10-02 (tag UnmanagedLayerFinder-v1.3.0); submitted on xrmtoolbox.com 2026-10-02, waiting for admin validation |
-| Deployment Doctor | `DeploymentDoctor\` | v0.3.2 builds (forms, views, web resources, processes); first real-env test done 2026-10-02 (fixed false Package-content problem); fixes and export not yet tested; not on NuGet. Writes data only via confirmed Fix buttons |
+| Deployment Doctor | `DeploymentDoctor\` | v1.0.0 (2026-10-05): first public release prepared; run "Release to NuGet" for DeploymentDoctor, then register at xrmtoolbox.com/plugins/new/. Writes data only via confirmed Fix buttons |
 
 ## Adding a new tool
 1. Copy the UnmanagedLayerFinder layout into `<ToolName>\` (rename project, namespace, plugin class, nuspec id, icons).
