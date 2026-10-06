@@ -38,6 +38,7 @@ C:\Ankit Rana\Claude Work\
 
 ## Git and publishing
 - Repo-local git identity (set 2026-10-02): `Ankit Rana` / `6076532+ankitrana@users.noreply.github.com`. Never use the machine's global git email (it is a work account).
+- **No `Co-Authored-By: Claude` (or any AI attribution) lines in commit messages or PR descriptions.** Ankit doesn't want Claude listed as a contributor (2026-10-06).
 - Public repo: no client names, org URLs, customer data, or screenshots from client environments (use a trial/developer env).
 - Author links: LinkedIn https://www.linkedin.com/in/mrankitrana/ , GitHub https://github.com/ankitrana
 - NuGet push and xrmtoolbox.com submission are done by Ankit with his own credentials; never put API keys in chat or files.
