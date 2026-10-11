@@ -1,0 +1,62 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "UnmanagedLayerFinder", "UnmanagedLayerFinder", "{FB1BD1EC-F4AB-318D-1C99-66CB1981A097}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{CF024EC3-0B5F-4699-05B0-6122C0714945}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnmanagedLayerFinder", "UnmanagedLayerFinder\src\UnmanagedLayerFinder\UnmanagedLayerFinder.csproj", "{3AEBAE55-E19C-4F54-AAB1-FB8E72833FE6}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "DeploymentDoctor", "DeploymentDoctor", "{BE248CF1-FF99-5771-4576-329DCDA82E4A}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{B6AFB106-C235-8D14-9B81-938EFD9773FC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DeploymentDoctor", "DeploymentDoctor\src\DeploymentDoctor\DeploymentDoctor.csproj", "{55E04247-D19B-4B48-A460-58DFB2EEA22D}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{3AEBAE55-E19C-4F54-AAB1-FB8E72833FE6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3AEBAE55-E19C-4F54-AAB1-FB8E72833FE6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3AEBAE55-E19C-4F54-AAB1-FB8E72833FE6}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{3AEBAE55-E19C-4F54-AAB1-FB8E72833FE6}.Debug|x64.Build.0 = Debug|Any CPU
+		{3AEBAE55-E19C-4F54-AAB1-FB8E72833FE6}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{3AEBAE55-E19C-4F54-AAB1-FB8E72833FE6}.Debug|x86.Build.0 = Debug|Any CPU
+		{3AEBAE55-E19C-4F54-AAB1-FB8E72833FE6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3AEBAE55-E19C-4F54-AAB1-FB8E72833FE6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3AEBAE55-E19C-4F54-AAB1-FB8E72833FE6}.Release|x64.ActiveCfg = Release|Any CPU
+		{3AEBAE55-E19C-4F54-AAB1-FB8E72833FE6}.Release|x64.Build.0 = Release|Any CPU
+		{3AEBAE55-E19C-4F54-AAB1-FB8E72833FE6}.Release|x86.ActiveCfg = Release|Any CPU
+		{3AEBAE55-E19C-4F54-AAB1-FB8E72833FE6}.Release|x86.Build.0 = Release|Any CPU
+		{55E04247-D19B-4B48-A460-58DFB2EEA22D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{55E04247-D19B-4B48-A460-58DFB2EEA22D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{55E04247-D19B-4B48-A460-58DFB2EEA22D}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{55E04247-D19B-4B48-A460-58DFB2EEA22D}.Debug|x64.Build.0 = Debug|Any CPU
+		{55E04247-D19B-4B48-A460-58DFB2EEA22D}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{55E04247-D19B-4B48-A460-58DFB2EEA22D}.Debug|x86.Build.0 = Debug|Any CPU
+		{55E04247-D19B-4B48-A460-58DFB2EEA22D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{55E04247-D19B-4B48-A460-58DFB2EEA22D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{55E04247-D19B-4B48-A460-58DFB2EEA22D}.Release|x64.ActiveCfg = Release|Any CPU
+		{55E04247-D19B-4B48-A460-58DFB2EEA22D}.Release|x64.Build.0 = Release|Any CPU
+		{55E04247-D19B-4B48-A460-58DFB2EEA22D}.Release|x86.ActiveCfg = Release|Any CPU
+		{55E04247-D19B-4B48-A460-58DFB2EEA22D}.Release|x86.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{CF024EC3-0B5F-4699-05B0-6122C0714945} = {FB1BD1EC-F4AB-318D-1C99-66CB1981A097}
+		{3AEBAE55-E19C-4F54-AAB1-FB8E72833FE6} = {CF024EC3-0B5F-4699-05B0-6122C0714945}
+		{B6AFB106-C235-8D14-9B81-938EFD9773FC} = {BE248CF1-FF99-5771-4576-329DCDA82E4A}
+		{55E04247-D19B-4B48-A460-58DFB2EEA22D} = {B6AFB106-C235-8D14-9B81-938EFD9773FC}
+	EndGlobalSection
+EndGlobal
