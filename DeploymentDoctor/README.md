@@ -115,7 +115,7 @@ The start screen inside the tool lists what it can check and what it cannot do, 
 
 ## How it works
 
-See [docs/how-it-works.md](docs/how-it-works.md). Changes between versions are in the [changelog](CHANGELOG.md).
+**User guide** (step by step, with screenshots): [Word](docs/Deployment-Doctor-User-Guide.docx) · [PDF](docs/Deployment-Doctor-User-Guide.pdf). For developers: [docs/how-it-works.md](docs/how-it-works.md). Changes between versions are in the [changelog](CHANGELOG.md).
 
 ## Feedback
 
