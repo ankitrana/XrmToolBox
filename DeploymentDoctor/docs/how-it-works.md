@@ -66,6 +66,7 @@ tab tells you which parts are actually different.
 | Publish in Dev | Dev | `PublishXml` for the table |
 | Add to Dev solution | Dev | `AddSolutionComponent` (type 60 / 26 / 61 / 29, no required components) |
 | Turn on in Target (processes) | Target | `SetState` Activated (state 1, status 2) |
+| Enable plug-in step | Target | `SetState` Enabled (state 0, status 1) on `sdkmessageprocessingstep` |
 
 Publishing a web resource publishes only that web resource; forms and views publish their table.
 `RemoveActiveCustomizations` is not supported for every component type; if Dataverse refuses, the error is shown.
