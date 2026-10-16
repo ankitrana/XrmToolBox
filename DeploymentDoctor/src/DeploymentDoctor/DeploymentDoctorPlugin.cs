@@ -6,7 +6,7 @@ namespace DeploymentDoctor
 {
     [Export(typeof(IXrmToolBoxPlugin)),
      ExportMetadata("Name", "Deployment Doctor"),
-     ExportMetadata("Description", "Find out why a change deployed with a managed solution does not show in the target environment (forms, views, web resources, workflows, business rules and cloud flows) and fix it safely. Created by Ankit Rana."),
+     ExportMetadata("Description", "Find out why a change deployed with a managed solution does not show in the target environment (forms, views, site maps, ribbons, web resources, workflows, business rules, cloud flows, environment variables, connection references and plug-ins) and fix it safely. Created by Ankit Rana."),
      ExportMetadata("SmallImageBase64", PluginIcons.Small),
      ExportMetadata("BigImageBase64", PluginIcons.Big),
      ExportMetadata("BackgroundColor", "Honeydew"),

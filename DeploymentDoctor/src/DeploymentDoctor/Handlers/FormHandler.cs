@@ -13,6 +13,7 @@ namespace DeploymentDoctor
         public override ComponentKind Kind { get { return ComponentKind.Form; } }
         public override string Label { get { return "Form"; } }
         public override string Table { get { return "systemform"; } }
+        public override string Category { get { return "Screens and navigation"; } }
         public override int ComponentType { get { return 60; } }
         public override string LayerName { get { return "SystemForm"; } }
         public override string[] ContentAttributes { get { return new[] { "formxml" }; } }
@@ -61,6 +62,11 @@ namespace DeploymentDoctor
 
         public override string Pretty(Snapshot s) { return FormXmlDiff.Pretty(s.Get("formxml")); }
 
+        public override string State(IOrganizationService svc, Snapshot s)
+        {
+            return OptionValue(s.Record, "formactivationstate", 1) == 0 ? "Inactive" : "Active";
+        }
+
         public override bool LayerContentUsable(Snapshot layer)
         {
             var xml = layer.Get("formxml");
@@ -72,8 +78,48 @@ namespace DeploymentDoctor
             get { return "Ask users to hard-refresh (Ctrl+F5) and check they open this form (form selector)."; }
         }
 
+        /// <summary>Other forms of the same type and name on the table, with a different id (recreated or duplicated forms).</summary>
+        private List<Entity> SameNameForms(IOrganizationService svc, ComponentItem item)
+        {
+            var q = new QueryExpression(Table) { ColumnSet = new ColumnSet("name", "formactivationstate") };
+            q.Criteria.AddCondition("name", ConditionOperator.Equal, item.Name);
+            q.Criteria.AddCondition("objecttypecode", ConditionOperator.Equal, item.Group);
+            q.Criteria.AddCondition("type", ConditionOperator.Equal, item.SubTypeCode);
+            q.Criteria.AddCondition("formid", ConditionOperator.NotEqual, item.Id);
+            return svc.RetrieveMultiple(q).Entities.ToList();
+        }
+
+        public override void OnMissingInTarget(CheckContext c)
+        {
+            DoctorService.Try(c.Findings, "Same-name forms", () =>
+            {
+                var same = SameNameForms(c.Target, c.Item);
+                if (same.Count == 0) return;
+                c.Findings.Add(new Finding(Severity.Problem, "Same name, different id",
+                    "Target has " + (same.Count == 1 ? "another form" : same.Count + " other forms") + " named '" + c.Item.Name + "' on table '" + c.Item.Group + "' with a different id (" +
+                    string.Join(", ", same.Select(e => e.Id.ToString("B"))) + "). The form in Dev was probably deleted and recreated, so it is a different form: " +
+                    "deployments can't update the old one, they add a new one next to it.",
+                    "Make the changes in the original form in Dev (the one with the same id as Target) instead of recreating it. If the form was already recreated, remove the old form from the managed solution with an upgrade so only one remains."));
+            });
+
+            if (c.DevSnap != null)
+                DoctorService.Try(c.Findings, "Form health", () => FormHealth.Run(c));
+        }
+
         public override void TypeChecks(CheckContext c)
         {
+            DoctorService.Try(c.Findings, "Form health", () => FormHealth.Run(c));
+
+            DoctorService.Try(c.Findings, "Same-name forms", () =>
+            {
+                var same = SameNameForms(c.Target, c.Item);
+                if (same.Count > 0)
+                    c.Findings.Add(new Finding(Severity.Warning, "Same-name forms",
+                        "Target has " + (same.Count == 1 ? "another form" : same.Count + " other forms") + " named '" + c.Item.Name + "' of the same type on this table (" +
+                        string.Join(", ", same.Select(e => e.Id.ToString("B"))) + "). Users may open the other one, and its content can differ.",
+                        "Check which form your users open (form selector and the app). Rename or remove the duplicate in Dev and deploy as an upgrade."));
+            });
+
             if (OptionValue(c.TargetSnap.Record, "formactivationstate", 1) == 0)
                 c.Findings.Add(new Finding(Severity.Problem, "Form is active", "The form is INACTIVE in Target, so users can't open it.",
                     "Activate the form in Dev (Forms list > Activate) and deploy again, so Dev and Target agree."));

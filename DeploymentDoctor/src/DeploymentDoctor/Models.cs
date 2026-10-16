@@ -28,7 +28,7 @@ namespace DeploymentDoctor
         }
     }
 
-    public enum ComponentKind { Form, View, WebResource, Process }
+    public enum ComponentKind { Form, View, SiteMap, Ribbon, WebResource, Process, EnvironmentVariable, ConnectionReference, PluginStep, PluginAssembly }
 
     /// <summary>One form, view, web resource or process in the pickers.</summary>
     public class ComponentItem
@@ -73,13 +73,20 @@ namespace DeploymentDoctor
         public string Check { get; set; }
         public string Result { get; set; }
         public string HowToFix { get; set; }
+        /// <summary>"What was checked" lines of a health row (one per test, per environment).</summary>
+        public string Details { get; set; }
+        /// <summary>Heading above Details; "What was checked" unless the finding says otherwise.</summary>
+        public string DetailsTitle { get; set; }
         public string FixButton { get { return Action == null ? "" : Action.Label; } }
 
         internal FixAction Action;
 
+        /// <summary>The "is it corrupted?" rows (Form health, Site map health, ...): always shown first.</summary>
+        public bool IsHealth { get { return Check != null && (Check.EndsWith(" health", StringComparison.Ordinal) || Check.Contains(" health:")); } }
+
         internal Finding(Severity severity, string check, string result, string howToFix = null, FixAction action = null)
         {
-            Severity = severity; Check = check; Result = result; HowToFix = howToFix; Action = action;
+            Severity = severity; Check = check; Result = result; HowToFix = howToFix; Action = action; DetailsTitle = "What was checked";
         }
     }
 
@@ -132,6 +139,12 @@ namespace DeploymentDoctor
         public bool TargetMatchesDev;
         public string Verdict;
         public string NextStep;
+
+        // The same verdict split for the screen: a short headline, the detail, and the finding it is based on
+        public string VerdictTitle;
+        public string VerdictDetail;
+        public Severity VerdictSeverity;
+        public Finding VerdictFinding;       // null when the verdict isn't based on a single problem
 
         // Readable content for the tabs and reports (XML, script text, flow definition)
         public string TargetContent;

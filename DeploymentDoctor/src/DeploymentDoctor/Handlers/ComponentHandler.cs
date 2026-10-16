@@ -42,12 +42,30 @@ namespace DeploymentDoctor
         public abstract ComponentKind Kind { get; }
         public abstract string Label { get; }               // "Form", "View", ...
         public abstract string Table { get; }               // backing table
-        public abstract int ComponentType { get; }          // solutioncomponent.componenttype
+        public abstract int ComponentType { get; }          // solutioncomponent.componenttype; -1 = not a fixed number (membership is then matched by id)
         public abstract string LayerName { get; }           // msdyn_solutioncomponentname / RemoveActiveCustomizations name
         public abstract string[] ContentAttributes { get; } // compared between environments
         public virtual string[] OtherAttributes { get { return new string[0]; } }
         public virtual bool Publishable { get { return true; } }
         public virtual string GroupLabel { get { return "Table:"; } }
+
+        /// <summary>Heading of this type in the component type dropdown.</summary>
+        public virtual string Category { get { return "Other"; } }
+        public virtual string DisplayName { get { return Label; } }
+        public virtual bool IsBeta { get { return false; } }
+        /// <summary>False when items are not grouped by table or prefix: the group box is hidden.</summary>
+        public virtual bool HasGroups { get { return true; } }
+
+        /// <summary>False when "remove active customizations" is not the right way to remove an unmanaged layer of this type.</summary>
+        public virtual bool SupportsRemoveActive { get { return true; } }
+        public virtual string RemoveActiveAdvice(ComponentItem item) { return null; }
+
+        /// <summary>What else gets published with this item, for the confirmation window.</summary>
+        public virtual string PublishWarning(ComponentItem item) { return " Other unpublished changes on that table in Dev are published too."; }
+        public virtual string PublishAdvice(ComponentItem item)
+        {
+            return "Other developers may have unfinished, unpublished changes on table '" + item.Group + "' in Dev; they get published too. Check with your team first.";
+        }
 
         /// <summary>True when adding the table with all subcomponents also adds this component.</summary>
         public virtual bool IncludedWithTable(ComponentItem item) { return false; }
@@ -76,12 +94,21 @@ namespace DeploymentDoctor
         /// <summary>Checks only this type has (form access, flow state, ...).</summary>
         public virtual void TypeChecks(CheckContext c) { }
 
+        /// <summary>Checks to run when the component's id does not exist in Target (TargetSnap is null).</summary>
+        public virtual void OnMissingInTarget(CheckContext c) { }
+
+        /// <summary>On/off style state of the component ("Active", "On", "Draft"...), or null when the type has none. Used by the solution compare.</summary>
+        public virtual string State(IOrganizationService svc, Snapshot s) { return null; }
+
+        /// <summary>True when this state is a problem in itself in Target ("No value", "No connection"), even if Dev has the same.</summary>
+        public virtual bool IsProblemState(string state) { return false; }
+
         /// <summary>What to tell users when Target already matches Dev.</summary>
         public virtual string WhenIdentical { get { return "Ask users to hard-refresh (Ctrl+F5)."; } }
 
         // ------------------------------------------------------------ shared
 
-        public Snapshot Load(IOrganizationService svc, Guid id)
+        public virtual Snapshot Load(IOrganizationService svc, Guid id)
         {
             Entity e;
             try { e = svc.Retrieve(Table, id, new ColumnSet(ContentAttributes.Concat(OtherAttributes).Distinct().ToArray())); }
@@ -214,7 +241,8 @@ namespace DeploymentDoctor
     {
         public static readonly List<ComponentHandler> All = new List<ComponentHandler>
         {
-            new FormHandler(), new ViewHandler(), new WebResourceHandler(), new ProcessHandler()
+            new FormHandler(), new ViewHandler(), new SiteMapHandler(), new RibbonHandler(), new ProcessHandler(),
+            new EnvironmentVariableHandler(), new ConnectionReferenceHandler(), new PluginStepHandler(), new PluginAssemblyHandler(), new WebResourceHandler()
         };
 
         public static ComponentHandler For(ComponentKind kind)

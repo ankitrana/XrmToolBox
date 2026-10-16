@@ -15,6 +15,7 @@ namespace DeploymentDoctor
         public override ComponentKind Kind { get { return ComponentKind.View; } }
         public override string Label { get { return "View"; } }
         public override string Table { get { return "savedquery"; } }
+        public override string Category { get { return "Screens and navigation"; } }
         public override int ComponentType { get { return 26; } }
         public override string LayerName { get { return "SavedQuery"; } }
         public override string[] ContentAttributes { get { return new[] { "fetchxml", "layoutxml" }; } }
@@ -63,6 +64,12 @@ namespace DeploymentDoctor
         public override string Pretty(Snapshot s)
         {
             return "FetchXML:\r\n" + FormXmlDiff.Pretty(s.Get("fetchxml")) + "\r\n\r\nLayoutXML:\r\n" + FormXmlDiff.Pretty(s.Get("layoutxml"));
+        }
+
+        public override string State(IOrganizationService svc, Snapshot s)
+        {
+            try { return OptionValue(svc.Retrieve(Table, s.Record.Id, new ColumnSet("statecode")), "statecode", 0) == 0 ? "Active" : "Inactive"; }
+            catch (Exception) { return null; }
         }
 
         public override bool LayerContentUsable(Snapshot layer)

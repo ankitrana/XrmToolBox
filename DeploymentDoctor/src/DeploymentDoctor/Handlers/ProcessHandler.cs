@@ -19,6 +19,8 @@ namespace DeploymentDoctor
         public override ComponentKind Kind { get { return ComponentKind.Process; } }
         public override string Label { get { return "Process"; } }
         public override string Table { get { return "workflow"; } }
+        public override string Category { get { return "Logic and automation"; } }
+        public override string DisplayName { get { return "Process / cloud flow"; } }
         public override int ComponentType { get { return 29; } }
         public override string LayerName { get { return "Workflow"; } }
         public override string[] ContentAttributes { get { return new[] { "clientdata", "xaml" }; } }
@@ -148,6 +150,13 @@ namespace DeploymentDoctor
                 type, op == null ? "" : ", operation=" + op,
                 after == null || after.Count == 0 ? "" : ", runs after " + string.Join("/", after.Keys),
                 TextDiff.Hash(Encoding.UTF8.GetBytes(Json.Serialize(own))));
+        }
+
+        public override string State(IOrganizationService svc, Snapshot s)
+        {
+            bool on = OptionValue(s.Record, "statecode", 0) == 1;
+            bool flow = IsFlow(CategoryOf(s, null));
+            return on ? (flow ? "On" : "Activated") : (flow ? "Off" : "Draft");
         }
 
         public override string Pretty(Snapshot s)

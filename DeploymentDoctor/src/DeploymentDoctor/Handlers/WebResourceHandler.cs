@@ -16,6 +16,9 @@ namespace DeploymentDoctor
         public override ComponentKind Kind { get { return ComponentKind.WebResource; } }
         public override string Label { get { return "Web resource"; } }
         public override string Table { get { return "webresource"; } }
+        public override string Category { get { return "Code and resources"; } }
+        public override string PublishWarning(ComponentItem item) { return ""; }
+        public override string PublishAdvice(ComponentItem item) { return "Make sure the saved file in Dev is the version you want to ship."; }
         public override int ComponentType { get { return 61; } }
         public override string LayerName { get { return "WebResource"; } }
         public override string[] ContentAttributes { get { return new[] { "content" }; } }

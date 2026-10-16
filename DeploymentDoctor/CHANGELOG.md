@@ -2,6 +2,79 @@
 
 All notable changes to Deployment Doctor. Versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.5.2] - 2026-10-16
+### Added
+- **When was the unmanaged layer changed?** The "Unmanaged layer in Target" finding now says "unmanaged layer last changed <date and time>" in your computer's local time (layer times were shown in UTC before, without saying so). The details compare it with when your managed solution layer was last written (deployed) and say whether the unmanaged change is OLDER (already there, the deployment did not remove it) or NEWER (made after the deployment). The component's own modified date is deliberately not used: it changes on every import. Dataverse keeps only the time of the last change of a layer, not when it was first added; the start screen says so.
+## [1.5.1] - 2026-10-16
+### Changed
+- The **beta** labels are gone (Ribbon, Environment variable, Connection reference, Plug-in step, Plug-in assembly), the start screen, About and docs no longer say beta, and the Ribbon no longer shows its always-on Beta note. What remains true is still listed under *What it does not do*: the unmanaged layer of a ribbon, environment variable, connection reference or plug-in can't be removed from here (the manual steps are shown).
+## [1.5.0] - 2026-10-16
+### Added (all four marked beta: not yet verified on a real environment)
+- **Environment variable**: compares type and default value; shows the current value of each environment (different values are normal and are not flagged); a variable with no default and no current value in Target is a problem. Secrets are never read.
+- **Connection reference**: compares connector and names; flags a reference that has no connection in Target (flows using it can't run). The connection itself is chosen per environment, so it is not compared. It has no fixed solution component number, so its membership in a solution is matched by id.
+- **Plug-in step**: compares message, stage, mode, execution order, plug-in class, assembly version, filtering columns and (as a hash) the unsecure configuration; flags a step that is disabled in Target and offers a confirmed **Enable step in Target** fix.
+- **Plug-in assembly**: compares version, isolation mode and the DLL itself (size and hash).
+- All four work in **Check one item** and in **Compare whole solution**; in the compare, a state such as "No value" or "No connection" in Target is shown in orange even when Dev is the same.
+- New category **Settings and connections** in the Component type dropdown.
+### Changed
+- The headline ("Most likely cause") now prefers a real cause over the "Target vs Dev" symptom row, which only says that the other findings explain why.
+- Start screen, Compare text and About list the new types and no longer say plug-in steps and environment variables are not compared.
+## [1.4.1] - 2026-10-16
+### Changed
+- The Compare start text and the About box also say what is not compared yet.
+- The start screen now also lists **what it does not do yet** (no automatic changes, types not compared yet, published content only, Ribbon beta, Dev needed for comparing).
+- The start screen of "Check one item" now also explains **Compare whole solution** (what the colours mean and how to open a component from the result).
+## [1.4.0] - 2026-10-16
+### Added
+- **Compare whole solution** (toolbar button next to "Check one item"). Pick a solution, connect Dev, click **Compare with Dev**. Every form, view, site map, ribbon, process / flow and web resource of the solution in Dev is found in Target and compared with the same comparers as the single-item doctor:
+  - **red**: different content, or missing in Target;
+  - **orange**: content is the same but the state differs (flow or process on in Dev and off in Target, form or view inactive), Dev has changes that were never published, or the component is still in the solution in Target but no longer in Dev (an 'Update' import never deletes);
+  - **green**: same.
+  Click a row for the full list of differences (and a hint when Target has an unmanaged layer on it). **Diagnose this component** opens the normal doctor for that row. A tick box hides the components that match. The header shows the counts, the solution versions in Dev and Target, and which component types are not compared yet (tables, columns, plugin steps, environment variables ...).
+- Export of the compare result as HTML, CSV or text (environment names only: no URLs and no component content).
+- If one component type cannot be read (permissions, older environment), it is shown as "Could not check" and the rest of the compare continues.
+### Notes
+- Read-only. Tables, columns, plugin steps, environment variables, security roles and similar types are not compared yet.
+- Only the published content is compared, like the single-item doctor.
+## [1.3.2] - 2026-10-16
+### Added
+- **What the unmanaged layer changed.** The "Unmanaged layer in Target" finding now lists the parts changed (as reported by Dataverse) and what differs between the unmanaged layer and the managed layer right below it, for example "Column 'name': width 200 -> 300" or "Sort order: name asc -> name desc". When Dataverse does not store the content of the layer, it lists the Dev vs Target differences instead (they include the effect of the unmanaged change), or says how to see it in the maker portal. Also in the copied text and the reports.
+## [1.3.1] - 2026-10-16
+### Changed
+- **"What was checked"** under every health row (Form, Site map, Ribbon): one line per test and environment with a tick, cross, warning or dash, for example "Fields: 47 fields on the form exist as columns of table account in Target" or "Subgrid views: none on the form". It also appears in the copied text and in the Text and HTML reports, so you can show a developer exactly what was looked at when you say the form is NOT corrupted.
+- **Start screen** now explains what the tool can do: the component types it checks (with what is looked at for each), what you get back, and how to start.
+## [1.3.0] - 2026-10-16
+### Added
+- **Site map** (the left navigation of a model-driven app) as a component type: Dev vs Target compare of areas, groups and sub areas (title, table, URL, dashboard, icon, privilege, order), solution layers, publish state, which apps use it, and a **Site map health** check (damaged XML, duplicate ids, sub areas that open a table or web resource that does not exist in that environment). Remove-unmanaged-layer and publish fixes work like for the other types; publishing a site map publishes all customizations in Dev and the confirmation window says so.
+- **Ribbon (command bar)** as a component type, marked **beta**: compare of the buttons added or hidden, commands (with the script they run), enable/display rules and labels for a table's command bar or the application ribbon, plus a **Ribbon health** check (damaged XML, duplicate ids, scripts that do not exist, commands and rules that are not defined). How solution layers are reported for ribbons is not verified on every environment yet, and the tool does not remove ribbon layers (it explains the manual way instead).
+### Changed
+- **Component type is now a dropdown** (step 2), grouped by category: Screens and navigation (Form, View, Site map, Ribbon), Logic and automation (Process / cloud flow), Code and resources (Web resource). It replaces the four tiles, so more types fit later. Steps are named **1 Solution, 2 Component type, 3 Component**.
+- The "health" rows of every type (Form health, Site map health, Ribbon health) are shown first.
+## [1.2.1] - 2026-10-16
+### Changed
+- **Simpler screen.** The picker is now three short steps on the left (solution, what changed, which one) with one Diagnose button. The right side shows the answer first: a big verdict card with the next step and the main fix button, then form health, other problems and warnings as cards. Passed checks and the evidence (layers, differences, content) are collapsed until you open them.
+- Toolbar reduced to the connections (Target, Dev menu) and three actions (Refresh lists, Export report, About).
+- A short "how to start" message is shown before the first diagnosis. Diagnose stays disabled until an item is picked.
+- **Show all details** button in the toolbar opens every section (passed checks, notes, evidence) at once; **Hide details** closes them again.
+- Right-click any card > **Copy text** (the cards are not selectable like the old table cells).
+- Notes that carry advice, such as "Connect Dev...", keep showing that advice in the collapsed list.
+- Clearer step names: **1 Solution** (hint: solutions installed in Target), **2 What are you checking?**, **3 Pick the item**. The old label "Solution you deployed" was misleading.
+- New tick box **Also show Microsoft and system solutions**; by default Microsoft, Default and Active solutions stay hidden.
+- "Only items in this solution" moved under the item list, where it applies.
+- **Evidence has two views, switchable with one click:** **User view** (plain words: the solution layers as labelled cards - UNMANAGED, ABOVE YOURS, YOUR SOLUTION, BELOW YOURS - and a Dev vs Target table with Missing in Target / Different / Only in Target; each part starts with "issue" or "no issue") and **Developer view** (the original tabs: layers grid, differences as text, Target / Dev / layer content). The Evidence title summarises the issues and the section opens by itself when there is one.
+- Only the screen changed: the checks, fixes and reports are the same.
+## [1.1.1] - 2026-10-15
+### Added
+- **Form health check** for forms, answering "is this form really corrupted?" in Target and (when connected) Dev, read-only:
+  - Damaged XML (cannot be read, wrong root, duplicate tab / section / cell ids) = really corrupted.
+  - Broken references (fields that are not columns of the table, script libraries that are not web resources, subgrid views, quick view forms and custom controls that do not exist) = the form is NOT corrupted, but it is broken.
+  - Structure warnings (duplicate tab / section / control names, event handlers whose library is not added to the form).
+  - Healthy forms get a green "NOT corrupted" row, so you can show that to a developer.
+- **Same name, different id**: when the form is missing in Target, finds forms with the same name, table and type but another id (a recreated form); also warns about same-name forms next to a form that exists.
+- The form health rows are always the first rows of the findings list (previously only when the form was damaged or healthy).
+### Not verified yet
+- The duplicate-id and name rules follow the form XML format; they have been tested on sample XML but not yet on damaged forms from a real environment.
+
 ## [1.0.0] - 2026-10-05
 First public release (NuGet and XrmToolBox Tool Library). Same features as 0.3.2:
 - Forms, views, web resources and processes (classic workflows, business rules, actions, business process flows, cloud and desktop flows).

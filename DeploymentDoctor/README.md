@@ -6,7 +6,7 @@
 
 <p align="center">
   An <a href="https://www.xrmtoolbox.com/">XrmToolBox</a> tool that answers the classic ALM question: <b>"I deployed the managed solution. Why doesn't my change show?"</b><br/>
-  Works for <b>forms, views, web resources, classic workflows, business rules, actions and cloud flows</b>.
+  Compares a whole solution between Dev and Target in one go, and works for <b>forms, views, site maps, ribbons, web resources, classic workflows, business rules, actions, cloud flows, environment variables, connection references, plug-in steps and plug-in assemblies</b>.
 </p>
 
 <p align="center">
@@ -40,6 +40,7 @@ A change made in Dev and shipped in a managed solution can fail to appear in UAT
 
 - **Two environments**: Target (where the change doesn't show) as the main connection, Dev (source) as a second connection
 - **Verdict first**: "Most likely cause: ..." at the top, with every check listed below as Problem / Warning / OK / Info
+- **Form health check**: answers "is this form really corrupted?": damaged XML (duplicate ids...) vs only broken references (missing fields, scripts, views, controls) vs healthy; also finds forms recreated with the same name but a different id
 - **Solution layers** of the component in Target, with your solution, layers above it and the unmanaged layer highlighted
 - **Readable comparison** of Dev vs Target vs your solution's layer:
   - forms: tabs, sections, fields, field order, labels, visibility, scripts, event handlers, form access, form order
@@ -57,7 +58,7 @@ In XrmToolBox, open **Tool Library**, search for **Deployment Doctor**, and clic
 
 1. Connect XrmToolBox to the **Target** environment (UAT/Prod) and open **Deployment Doctor**.
 2. Click **Connect Dev (source)...** and pick your Dev connection (optional, but enables the most useful checks).
-3. Pick the **solution you deployed**, the **type** (Form, View, Web resource, Process / flow), the **table** (or web resource prefix) and the item. Type in the item box to filter.
+3. Pick the **solution** (installed in Target), the **type** (Form, View, Web resource, Process / flow), the **table** (or web resource prefix) and the item. Type in the item box to filter.
 4. Click **Diagnose**. Read the verdict, then the findings. Use a **Fix** button if one is offered.
 5. Click **Export report** to share the result as HTML, CSV or text.
 

@@ -14,30 +14,27 @@ namespace DeploymentDoctor
 {
     /// <summary>
     /// Main connection = Target (where the change doesn't show). Second connection = Dev (source), optional.
+    /// Left: three steps to pick what to check. Right: the answer, then the evidence.
     /// </summary>
     public class DeploymentDoctorControl : MultipleConnectionsPluginControlBase
     {
         private const string AdditionalOrganizationAction = "AdditionalOrganization";
 
         private ToolStripLabel lblTarget;
-        private ToolStripLabel lblDev;
-        private ToolStripButton btnConnectDev;
-        private ToolStripButton btnDisconnectDev;
+        private ToolStripDropDownButton ddDev;
+        private ToolStripMenuItem miConnectDev;
+        private ToolStripMenuItem miDisconnectDev;
         private ToolStripDropDownButton ddExport;
+        private ToolStripButton btnExpand;
+        private bool allOpen;
 
-        private ComboBox cboSolution;
-        private CheckBox chkOnlyInSolution;
-        private ComboBox cboKind;
-        private System.Windows.Forms.Label lblGroup;
-        private ComboBox cboGroup;
-        private System.Windows.Forms.Label lblComponent;
-        private ComboBox cboComponent;
-        private Button btnDiagnose;
-
-        private System.Windows.Forms.Label lblVerdict;
-        private DataGridView gridFindings;
-        private DataGridView gridLayers;
-        private TextBox txtDiff, txtTargetContent, txtDevContent, txtLayerContent;
+        private PickerPanel picker;
+        private ResultsView results;
+        private CompareView compareView;
+        private ToolStripButton btnModeOne, btnModeAll;
+        private bool compareMode;
+        private CompareResult lastCompare;
+        private string lastCompareDev, lastCompareTarget;
         private System.Windows.Forms.Label lblStatus;
 
         private ConnectionDetail targetDetail;
@@ -47,25 +44,16 @@ namespace DeploymentDoctor
         private HashSet<Guid> solutionIds;          // null = no solution filter
         private Diagnosis lastDiagnosis;
         private ComponentItem lastItem;
+        private SolutionItem lastSolItem;
         private string lastSolution;            // what the last diagnosis ran against, for reports
         private ConnectionDetail lastDevDetail;
         private DateTime lastRunOn;
         private bool exportXml, exportUrls;         // HTML export choices, remembered for this session only
 
-        private const string NoSolution = "(none - check the component only)";
+        private const string NoSolution = "(no solution - check the item only)";
 
         private ComponentHandler CurrentHandler { get { return Handlers.For(CurrentKind); } }
-        private ComponentKind CurrentKind
-        {
-            get { var k = cboKind.SelectedItem as KindOption; return k == null ? ComponentKind.Form : k.Kind; }
-        }
-
-        private class KindOption
-        {
-            public ComponentKind Kind;
-            public string Text;
-            public override string ToString() { return Text; }
-        }
+        private ComponentKind CurrentKind { get { return picker.Kind; } }
 
         public DeploymentDoctorControl()
         {
@@ -79,174 +67,90 @@ namespace DeploymentDoctor
 
         private void BuildUi()
         {
+            // Toolbar: only connections and a few actions
             var tools = new ToolStrip { GripStyle = ToolStripGripStyle.Hidden };
-            var btnReload = new ToolStripButton("Reload lists");
-            lblTarget = new ToolStripLabel("Target: (not connected)") { ForeColor = Color.DarkRed };
-            btnConnectDev = new ToolStripButton("Connect Dev (source)...");
-            btnDisconnectDev = new ToolStripButton("Disconnect Dev") { Enabled = false };
-            lblDev = new ToolStripLabel("Dev: (optional, not connected)") { ForeColor = Color.DimGray };
-            ddExport = new ToolStripDropDownButton("Export report") { Enabled = false };
+            lblTarget = new ToolStripLabel("\u25CF Target: not connected") { ForeColor = Color.DarkRed, Font = new Font(Font, FontStyle.Bold) };
+            ddDev = new ToolStripDropDownButton("\u25CF Dev: optional") { ForeColor = Color.DimGray, ToolTipText = "Connect a second environment (the source) to compare it with Target" };
+            miConnectDev = new ToolStripMenuItem("Connect Dev (source)...");
+            miDisconnectDev = new ToolStripMenuItem("Disconnect Dev") { Enabled = false };
+            ddDev.DropDownItems.Add(miConnectDev);
+            ddDev.DropDownItems.Add(miDisconnectDev);
+            miConnectDev.Click += (s, e) => AddAdditionalOrganization();
+            miDisconnectDev.Click += (s, e) => { var d = DevDetail; if (d != null) RemoveAdditionalOrganization(d); };
+
+            var btnAbout = new ToolStripButton("About") { Alignment = ToolStripItemAlignment.Right };
+            ddExport = new ToolStripDropDownButton("Export report") { Enabled = false, Alignment = ToolStripItemAlignment.Right };
             ddExport.DropDownItems.Add("HTML report (to email or attach to a ticket)...", null, (s, e) => ExportFile("html"));
             ddExport.DropDownItems.Add("CSV (opens in Excel)...", null, (s, e) => ExportFile("csv"));
             ddExport.DropDownItems.Add("Copy as text (for Teams / chat)", null, (s, e) => CopyReport());
-            var btnAbout = new ToolStripButton("About") { Alignment = ToolStripItemAlignment.Right };
-            tools.Items.AddRange(new ToolStripItem[]
+            var btnReload = new ToolStripButton("Refresh lists") { Alignment = ToolStripItemAlignment.Right };
+            btnExpand = new ToolStripButton("Show all details") { Enabled = false, ToolTipText = "Open every section: passed checks, evidence and notes" };
+            btnExpand.Click += (s, e) =>
             {
-                btnReload, new ToolStripSeparator(), lblTarget, new ToolStripSeparator(),
-                btnConnectDev, btnDisconnectDev, lblDev, new ToolStripSeparator(), ddExport, btnAbout
-            });
+                allOpen = !allOpen;
+                results.SetAllExpanded(allOpen);
+                btnExpand.Text = allOpen ? "Hide details" : "Show all details";
+            };
+            btnModeOne = new ToolStripButton("Check one item") { Checked = true, ToolTipText = "Find out why one component did not deploy as expected" };
+            btnModeAll = new ToolStripButton("Compare whole solution") { ToolTipText = "Compare every component of a solution between Dev and Target" };
+            btnModeOne.Click += (s, e) => SetMode(false);
+            btnModeAll.Click += (s, e) => SetMode(true);
+            tools.Items.AddRange(new ToolStripItem[] { lblTarget, new ToolStripSeparator(), ddDev, new ToolStripSeparator(), btnModeOne, btnModeAll, new ToolStripSeparator(), btnExpand, btnAbout, ddExport, btnReload });
             btnReload.Click += (s, e) => ExecuteMethod(LoadLists);
-            btnConnectDev.Click += (s, e) => AddAdditionalOrganization();
-            btnDisconnectDev.Click += (s, e) => { var d = DevDetail; if (d != null) RemoveAdditionalOrganization(d); };
             btnAbout.Click += (s, e) => ShowAbout();
 
-            var pick = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(6, 4, 6, 2), WrapContents = true };
-            cboSolution = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 340, DropDownWidth = 520 };
-            chkOnlyInSolution = new CheckBox { Text = "Only items in this solution", AutoSize = true, Checked = true, Margin = new Padding(3, 6, 12, 0) };
-            cboKind = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 110 };
-            cboKind.Items.AddRange(new object[]
-            {
-                new KindOption { Kind = ComponentKind.Form, Text = "Form" },
-                new KindOption { Kind = ComponentKind.View, Text = "View" },
-                new KindOption { Kind = ComponentKind.WebResource, Text = "Web resource" },
-                new KindOption { Kind = ComponentKind.Process, Text = "Process / flow" }
-            });
-            cboKind.SelectedIndex = 0;
-            lblGroup = Caption("Table:");
-            cboGroup = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 220, DropDownWidth = 360 };
-            lblComponent = Caption("Form:");
-            // Typing filters the list (web resources and flows can be many)
-            cboComponent = new ComboBox
-            {
-                DropDownStyle = ComboBoxStyle.DropDown, Width = 300, DropDownWidth = 480,
-                AutoCompleteMode = AutoCompleteMode.SuggestAppend, AutoCompleteSource = AutoCompleteSource.ListItems
-            };
-            btnDiagnose = new Button { Text = "Diagnose", AutoSize = true, Font = new Font(Font, FontStyle.Bold) };
-            pick.Controls.AddRange(new Control[]
-            {
-                Caption("Solution you deployed:"), cboSolution, chkOnlyInSolution,
-                Caption("Type:"), cboKind, lblGroup, cboGroup, lblComponent, cboComponent, btnDiagnose
-            });
-            cboSolution.SelectedIndexChanged += (s, e) => SolutionChanged();
-            chkOnlyInSolution.CheckedChanged += (s, e) => SolutionChanged();
-            cboKind.SelectedIndexChanged += (s, e) => KindChanged();
-            cboGroup.SelectedIndexChanged += (s, e) => FillComponents();
-            btnDiagnose.Click += (s, e) => ExecuteMethod(Diagnose);
+            picker = new PickerPanel();
+            picker.Solution.SelectedIndexChanged += (s, e) => SolutionChanged();
+            picker.OnlyInSolution.CheckedChanged += (s, e) => SolutionChanged();
+            picker.ShowSystemSolutions.CheckedChanged += (s, e) => FillSolutionList();
+            picker.KindChanged += (s, e) => KindChanged();
+            picker.Group.SelectedIndexChanged += (s, e) => FillComponents();
+            picker.Component.SelectedIndexChanged += (s, e) => UpdateDiagnoseEnabled();
+            picker.Component.TextChanged += (s, e) => UpdateDiagnoseEnabled();
+            picker.Diagnose.Click += (s, e) => { if (compareMode) ExecuteMethod(RunCompare); else ExecuteMethod(Diagnose); };
 
-            lblVerdict = new System.Windows.Forms.Label
-            {
-                Dock = DockStyle.Top, Height = 64, Padding = new Padding(8, 6, 8, 4),
-                Font = new Font(Font.FontFamily, 10f, FontStyle.Bold),
-                Text = "Pick the solution you deployed and the form, view, web resource or process that doesn't show your change, then click Diagnose."
-            };
-
-            gridFindings = NewGrid();
-            gridFindings.AutoGenerateColumns = false;
-            gridFindings.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.AllCells;
-            gridFindings.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Severity", HeaderText = "Result", Width = 70 });
-            gridFindings.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Check", HeaderText = "Check", Width = 170 });
-            gridFindings.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Result", HeaderText = "What was found", AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill, FillWeight = 60, DefaultCellStyle = { WrapMode = DataGridViewTriState.True } });
-            gridFindings.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "HowToFix", HeaderText = "How to fix", AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill, FillWeight = 40, DefaultCellStyle = { WrapMode = DataGridViewTriState.True } });
-            gridFindings.Columns.Add(new DataGridViewButtonColumn { Name = "Fix", DataPropertyName = "FixButton", HeaderText = "Fix", Width = 170 });
-            gridFindings.DataBindingComplete += (s, e) => FormatFindings();
-            gridFindings.CellContentClick += FindingsCellClick;
-
-            gridLayers = NewGrid();
-            gridLayers.AutoGenerateColumns = true;
-            gridLayers.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.DisplayedCells;
-            gridLayers.DataBindingComplete += (s, e) => FormatLayers();
-
-            txtDiff = NewText(); txtTargetContent = NewText(); txtDevContent = NewText(); txtLayerContent = NewText();
-
-            var tabs = new TabControl { Dock = DockStyle.Fill };
-            tabs.TabPages.Add(Page("Solution layers (Target, top first)", gridLayers));
-            tabs.TabPages.Add(Page("Differences: Dev vs Target", txtDiff));
-            tabs.TabPages.Add(Page("Target content", txtTargetContent));
-            tabs.TabPages.Add(Page("Dev content", txtDevContent));
-            tabs.TabPages.Add(Page("Your solution's layer content", txtLayerContent));
-
-            var split = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal, SplitterDistance = 300 };
-            split.Panel1.Controls.Add(gridFindings);
-            split.Panel2.Controls.Add(tabs);
+            results = new ResultsView { Dock = DockStyle.Fill };
+            compareView = new CompareView { Visible = false };
+            compareView.DiagnoseRequested += row => DiagnoseFromCompare(row);
 
             lblStatus = new System.Windows.Forms.Label { Dock = DockStyle.Bottom, Height = 22, Padding = new Padding(6, 3, 0, 0), Text = "Connect to the TARGET environment (where the change doesn't show) to begin.  |  Deployment Doctor - created by Ankit Rana" };
 
-            Controls.Add(split);
-            Controls.Add(lblVerdict);
-            Controls.Add(pick);
+            Controls.Add(results);
+            Controls.Add(compareView);
+            Controls.Add(picker);
             Controls.Add(tools);
             Controls.Add(lblStatus);
             Dock = DockStyle.Fill;
         }
 
-        private static System.Windows.Forms.Label Caption(string text)
+        private void UpdateDiagnoseEnabled()
         {
-            return new System.Windows.Forms.Label { Text = text, AutoSize = true, Margin = new Padding(3, 7, 0, 0) };
-        }
-
-        private static DataGridView NewGrid()
-        {
-            return new DataGridView
+            if (compareMode)
             {
-                Dock = DockStyle.Fill,
-                AllowUserToAddRows = false,
-                AllowUserToDeleteRows = false,
-                ReadOnly = true,
-                RowHeadersVisible = false,
-                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-                BackgroundColor = SystemColors.Window
-            };
-        }
-
-        private static TextBox NewText()
-        {
-            return new TextBox { Dock = DockStyle.Fill, Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Both, WordWrap = false, Font = new Font("Consolas", 9f), BackColor = SystemColors.Window };
-        }
-
-        private static TabPage Page(string title, Control content)
-        {
-            var p = new TabPage(title);
-            p.Controls.Add(content);
-            return p;
-        }
-
-        private void FormatFindings()
-        {
-            foreach (DataGridViewRow r in gridFindings.Rows)
-            {
-                var f = r.DataBoundItem as Finding;
-                if (f == null) continue;
-                r.DefaultCellStyle.BackColor = SeverityColor(f.Severity);
-                // Rows without an automatic fix get a plain empty cell instead of a button
-                if (f.Action == null) r.Cells["Fix"] = new DataGridViewTextBoxCell { Value = "" };
+                bool hasDev = DevService != null;
+                picker.Diagnose.Enabled = hasDev && picker.Solution.SelectedItem is SolutionItem;
+                picker.CompareHint.Text = hasDev
+                    ? "Compares every component of the solution picked below in Dev with Target."
+                    : "Connect Dev first (toolbar, Dev menu): it is the environment the solution came from.";
+                return;
             }
+            picker.Diagnose.Enabled = SelectedComponent() != null;
         }
 
-        private void FormatLayers()
+        /// <summary>Switch between "Check one item" and "Compare whole solution".</summary>
+        private void SetMode(bool compare)
         {
-            foreach (DataGridViewColumn c in gridLayers.Columns)
-                if (c.ValueType == typeof(DateTime?)) c.DefaultCellStyle.Format = "yyyy-MM-dd HH:mm";
-            foreach (DataGridViewRow r in gridLayers.Rows)
-            {
-                var l = r.DataBoundItem as LayerRow;
-                if (l == null) continue;
-                r.DefaultCellStyle.BackColor =
-                    l.Note == "Unmanaged (Active)" ? Color.MistyRose :
-                    l.Note == "Your solution" ? Color.Honeydew :
-                    l.Note == "Above yours" || (l.Note ?? "").StartsWith("Staged") ? Color.LightYellow :
-                    SystemColors.Window;
-            }
-        }
-
-        private static Color SeverityColor(Severity s)
-        {
-            switch (s)
-            {
-                case Severity.Problem: return Color.MistyRose;
-                case Severity.Warning: return Color.LightYellow;
-                case Severity.Ok: return Color.Honeydew;
-                default: return SystemColors.Window;
-            }
+            compareMode = compare;
+            btnModeOne.Checked = !compare;
+            btnModeAll.Checked = compare;
+            picker.SetCompareMode(compare);
+            results.Visible = !compare;
+            compareView.Visible = compare;
+            btnExpand.Visible = !compare;
+            ddExport.Enabled = compare ? lastCompare != null : lastDiagnosis != null;
+            UpdateDiagnoseEnabled();
+            if (compare) SetStatus(lastCompare == null ? "Pick a solution and click Compare." : "Compared " + lastCompare.SolutionName + ": " + lastCompare.NotMatching + " of " + lastCompare.Rows.Count + " components need attention.");
+            else SolutionChanged();
         }
 
         // ------------------------------------------------------------ Lists
@@ -268,25 +172,39 @@ namespace DeploymentDoctor
                     var t = (Tuple<List<SolutionItem>, List<TableItem>, List<ComponentItem>>)a.Result;
                     solutions = t.Item1; tables = t.Item2; itemsByKind[kind] = t.Item3;
 
-                    cboSolution.BeginUpdate();
-                    cboSolution.Items.Clear();
-                    cboSolution.Items.Add(NoSolution);
-                    // Your own managed solutions are the usual suspects, so list them first
-                    foreach (var s in solutions.Where(x => !x.IsMicrosoft && x.UniqueName != "Default" && x.UniqueName != "Active")
-                                               .OrderByDescending(x => x.IsManaged).ThenBy(x => x.FriendlyName))
-                        cboSolution.Items.Add(s);
-                    cboSolution.EndUpdate();
-                    cboSolution.SelectedIndex = cboSolution.Items.Count > 1 ? 1 : 0;   // triggers SolutionChanged
-                    SetStatus(string.Format("{0} solutions loaded.", cboSolution.Items.Count - 1));
+                    FillSolutionList();
                 }
             });
+        }
+
+        /// <summary>Fill the solution dropdown from the solutions installed in Target (Microsoft and system ones only on request).</summary>
+        private void FillSolutionList()
+        {
+            var cbo = picker.Solution;
+            var previous = cbo.SelectedItem as SolutionItem;
+            var all = picker.ShowSystemSolutions.Checked;
+
+            cbo.BeginUpdate();
+            cbo.Items.Clear();
+            cbo.Items.Add(NoSolution);
+            // Managed solutions first: they are the ones deployed from another environment
+            foreach (var s in solutions.Where(x => all || (!x.IsMicrosoft && x.UniqueName != "Default" && x.UniqueName != "Active"))
+                                       .OrderByDescending(x => x.IsManaged).ThenBy(x => x.FriendlyName))
+                cbo.Items.Add(s);
+            cbo.EndUpdate();
+
+            var keep = previous == null ? null : cbo.Items.OfType<SolutionItem>().FirstOrDefault(s => s.Id == previous.Id);
+            if (keep != null) cbo.SelectedItem = keep;
+            else cbo.SelectedIndex = cbo.Items.Count > 1 ? 1 : 0;   // triggers SolutionChanged
+            SetStatus(string.Format("{0} solutions installed in Target{1}.", cbo.Items.Count - 1, all ? "" : " (Microsoft and system solutions hidden)"));
         }
 
         private void KindChanged()
         {
             var h = CurrentHandler;
-            lblGroup.Text = h.GroupLabel;
-            lblComponent.Text = h.Label + ":";
+            picker.GroupLabel.Text = h.GroupLabel.TrimEnd(':');
+            picker.ComponentLabel.Text = h.Label;
+            picker.ShowGroups(h.HasGroups);
             if (Service == null) return;
 
             if (itemsByKind.ContainsKey(h.Kind)) { SolutionChanged(); return; }
@@ -313,8 +231,9 @@ namespace DeploymentDoctor
 
         private void SolutionChanged()
         {
-            var sol = cboSolution.SelectedItem as SolutionItem;
-            if (sol == null || !chkOnlyInSolution.Checked || Service == null)
+            if (compareMode) { UpdateDiagnoseEnabled(); return; }
+            var sol = picker.Solution.SelectedItem as SolutionItem;
+            if (sol == null || !picker.OnlyInSolution.Checked || Service == null)
             {
                 solutionIds = null;
                 FillGroups();
@@ -345,24 +264,25 @@ namespace DeploymentDoctor
         private string GroupText(string key)
         {
             if (CurrentKind == ComponentKind.WebResource) return key;
-            if (key == ProcessHandler.NoTable) return "(no table)";
+            if (key == ProcessHandler.NoTable) return CurrentKind == ComponentKind.Ribbon ? "(application ribbon)" : "(no table)";
             var t = tables.FirstOrDefault(x => x.LogicalName == key);
             return t == null ? key : t.ToString();
         }
 
         private void FillGroups()
         {
-            var previous = (cboGroup.SelectedItem as GroupOption)?.Key;
-            cboGroup.BeginUpdate();
-            cboGroup.Items.Clear();
+            var cbo = picker.Group;
+            var previous = (cbo.SelectedItem as GroupOption)?.Key;
+            cbo.BeginUpdate();
+            cbo.Items.Clear();
             foreach (var key in CandidateItems().Select(i => i.Group).Distinct()
                                  .Select(k => new GroupOption { Key = k, Text = GroupText(k) }).OrderBy(g => g.Text))
-                cboGroup.Items.Add(key);
-            cboGroup.EndUpdate();
+                cbo.Items.Add(key);
+            cbo.EndUpdate();
 
-            var keep = cboGroup.Items.OfType<GroupOption>().FirstOrDefault(g => g.Key == previous);
-            if (keep != null) cboGroup.SelectedItem = keep;
-            else if (cboGroup.Items.Count > 0) cboGroup.SelectedIndex = 0;
+            var keep = cbo.Items.OfType<GroupOption>().FirstOrDefault(g => g.Key == previous);
+            if (keep != null) cbo.SelectedItem = keep;
+            else if (cbo.Items.Count > 0) cbo.SelectedIndex = 0;
             else FillComponents();
 
             var what = CurrentHandler.Label.ToLowerInvariant() + "s";
@@ -374,32 +294,81 @@ namespace DeploymentDoctor
 
         private void FillComponents()
         {
-            var group = (cboGroup.SelectedItem as GroupOption)?.Key;
-            cboComponent.BeginUpdate();
-            cboComponent.Items.Clear();
-            cboComponent.Text = "";
+            var cbo = picker.Component;
+            var group = (picker.Group.SelectedItem as GroupOption)?.Key;
+            cbo.BeginUpdate();
+            cbo.Items.Clear();
+            cbo.Text = "";
             foreach (var i in CandidateItems().Where(i => i.Group == group).OrderBy(i => i.SubType).ThenBy(i => i.Name))
-                cboComponent.Items.Add(i);
-            cboComponent.EndUpdate();
-            if (cboComponent.Items.Count > 0) cboComponent.SelectedIndex = 0;
+                cbo.Items.Add(i);
+            cbo.EndUpdate();
+            if (cbo.Items.Count > 0) cbo.SelectedIndex = 0;
+            UpdateDiagnoseEnabled();
         }
 
         /// <summary>Selected item, also when the user typed the text instead of picking it.</summary>
         private ComponentItem SelectedComponent()
         {
-            var item = cboComponent.SelectedItem as ComponentItem;
+            var cbo = picker.Component;
+            var item = cbo.SelectedItem as ComponentItem;
             if (item != null) return item;
-            var text = cboComponent.Text;
-            return cboComponent.Items.OfType<ComponentItem>().FirstOrDefault(i => i.ToString() == text || i.Name == text);
+            var text = cbo.Text;
+            if (string.IsNullOrEmpty(text)) return null;
+            return cbo.Items.OfType<ComponentItem>().FirstOrDefault(i => i.ToString() == text || i.Name == text);
+        }
+
+        // -------------------------------------------------------- Compare whole solution
+
+        private void RunCompare()
+        {
+            var sol = picker.Solution.SelectedItem as SolutionItem;
+            if (sol == null) { MessageBox.Show("Pick a solution first."); return; }
+            var dev = DevService;
+            if (dev == null) { MessageBox.Show("Connect Dev first (toolbar, Dev menu). It is the environment the solution was exported from.", "Deployment Doctor"); return; }
+            if (targetDetail != null && DevDetail != null &&
+                string.Equals(targetDetail.WebApplicationUrl, DevDetail.WebApplicationUrl, StringComparison.OrdinalIgnoreCase))
+            {
+                MessageBox.Show("The Dev connection points to the same environment as Target. Connect Dev to your source environment.", "Deployment Doctor");
+                return;
+            }
+
+            var devName = DevDetail == null ? "Dev" : DevDetail.ConnectionName;
+            var targetName = targetDetail == null ? "Target" : targetDetail.ConnectionName;
+            WorkAsync(new WorkAsyncInfo
+            {
+                Message = "Comparing " + sol.FriendlyName + " between Dev and Target...",
+                Work = (w, a) => { a.Result = SolutionCompare.Run(dev, Service, sol, m => w.ReportProgress(0, m)); },
+                ProgressChanged = e => { var m = e.UserState as string; if (m != null) SetWorkingMessage(m); },
+                PostWorkCallBack = a =>
+                {
+                    if (a.Error != null) { MessageBox.Show(a.Error.Message, "Deployment Doctor"); return; }
+                    lastCompare = (CompareResult)a.Result;
+                    lastCompareDev = devName;
+                    lastCompareTarget = targetName;
+                    compareView.ShowResult(lastCompare, devName, targetName);
+                    ddExport.Enabled = true;
+                    SetStatus("Compared " + lastCompare.SolutionName + ": " + lastCompare.NotMatching + " of " + lastCompare.Rows.Count + " components need attention.");
+                }
+            });
         }
 
         // -------------------------------------------------------- Diagnose
-
         private void Diagnose()
         {
             var item = SelectedComponent();
             if (item == null) { MessageBox.Show("Pick a " + CurrentHandler.Label.ToLowerInvariant() + " first."); return; }
-            var sol = cboSolution.SelectedItem as SolutionItem;
+            DiagnoseItem(item, picker.Solution.SelectedItem as SolutionItem);
+        }
+
+        /// <summary>From the solution compare: diagnose one component, shown on the "Check one item" screen.</summary>
+        private void DiagnoseFromCompare(CompareRow row)
+        {
+            SetMode(false);
+            DiagnoseItem(row.Item, picker.Solution.SelectedItem as SolutionItem);
+        }
+
+        private void DiagnoseItem(ComponentItem item, SolutionItem sol)
+        {
             var dev = DevService;
             var devDetail = DevDetail;
 
@@ -419,6 +388,7 @@ namespace DeploymentDoctor
                     if (a.Error != null) { MessageBox.Show(a.Error.Message, "Error"); return; }
                     lastDiagnosis = (Diagnosis)a.Result;
                     lastItem = item;
+                    lastSolItem = sol;
                     lastSolution = sol == null ? NoSolution : sol.ToString();
                     lastDevDetail = dev == null ? null : devDetail;
                     lastRunOn = DateTime.Now;
@@ -429,29 +399,18 @@ namespace DeploymentDoctor
 
         private void ShowDiagnosis(Diagnosis d)
         {
-            var worst = d.Findings.Select(x => x.Severity).DefaultIfEmpty(Severity.Ok).Min();
-            lblVerdict.BackColor = SeverityColor(worst);
-            lblVerdict.Text = d.Verdict + Environment.NewLine + "Next step: " + d.NextStep;
-
-            gridFindings.DataSource = d.Findings.ToList();
-            gridLayers.DataSource = d.Layers.ToList();
-
-            txtDiff.Text = d.DevContent == null
-                ? "Connect Dev (source) to compare Dev with Target."
-                : ReportBuilder.DifferencesText(d);
-            txtTargetContent.Text = d.TargetContent ?? "";
-            txtDevContent.Text = d.DevContent ?? "(no Dev connection, or not found in Dev)";
-            txtLayerContent.Text = d.LayerContent ?? "(layer content not available)";
-
+            results.Show(d, OnFixRequested);
             ddExport.Enabled = true;
+            allOpen = false;
+            btnExpand.Enabled = true;
+            btnExpand.Text = "Show all details";
             SetStatus(string.Format("{0} problem(s), {1} warning(s).",
                 d.Findings.Count(x => x.Severity == Severity.Problem), d.Findings.Count(x => x.Severity == Severity.Warning)));
         }
 
-        private void FindingsCellClick(object sender, DataGridViewCellEventArgs e)
+        /// <summary>A Fix button was clicked: explain the change first, and only run it after the user agrees.</summary>
+        private void OnFixRequested(Finding f)
         {
-            if (e.RowIndex < 0 || gridFindings.Columns[e.ColumnIndex].Name != "Fix") return;
-            var f = gridFindings.Rows[e.RowIndex].DataBoundItem as Finding;
             if (f == null || f.Action == null) return;
 
             var detail = f.Action.OnDev ? DevDetail : targetDetail;
@@ -489,7 +448,7 @@ namespace DeploymentDoctor
                 {
                     if (a.Error != null) { MessageBox.Show(action.Label + " failed:\r\n" + a.Error.Message, "Error"); return; }
                     MessageBox.Show(action.Label + " done. Running the diagnosis again.", "Deployment Doctor");
-                    Diagnose();
+                    if (lastItem != null) DiagnoseItem(lastItem, lastSolItem); else Diagnose();
                 }
             });
         }
@@ -501,7 +460,7 @@ namespace DeploymentDoctor
             {
                 KindLabel = lastItem == null ? "" : Handlers.For(lastItem.Kind).Label,
                 ComponentName = lastItem == null ? "" : lastItem.Name,
-                Table = lastItem == null ? "" : (lastItem.Group == ProcessHandler.NoTable ? "(no table)" : lastItem.Group),
+                Table = lastItem == null ? "" : (lastItem.Group == ProcessHandler.NoTable ? (lastItem.Kind == ComponentKind.Ribbon ? "(application ribbon)" : "(no table)") : lastItem.Group == SiteMapHandler.Everything ? "-" : lastItem.Group),
                 GroupLabel = lastItem == null ? "Table" : Handlers.For(lastItem.Kind).GroupLabel.TrimEnd(':'),
                 SubType = lastItem == null ? "" : lastItem.SubType,
                 ComponentId = lastItem == null ? Guid.Empty : lastItem.Id,
@@ -517,6 +476,13 @@ namespace DeploymentDoctor
 
         private void CopyReport()
         {
+            if (compareMode)
+            {
+                if (lastCompare == null) return;
+                Clipboard.SetText(CompareReport.Text(lastCompare, lastCompareDev, lastCompareTarget));
+                SetStatus("Compare result copied to the clipboard.");
+                return;
+            }
             if (lastDiagnosis == null) return;
             Clipboard.SetText(ReportBuilder.Text(lastDiagnosis, CurrentContext()));
             SetStatus("Report copied to the clipboard.");
@@ -524,6 +490,7 @@ namespace DeploymentDoctor
 
         private void ExportFile(string format)
         {
+            if (compareMode) { ExportCompare(format); return; }
             if (lastDiagnosis == null) return;
             var ctx = CurrentContext();
 
@@ -569,6 +536,33 @@ namespace DeploymentDoctor
             }
         }
 
+        private void ExportCompare(string format)
+        {
+            if (lastCompare == null) return;
+            var version = typeof(DeploymentDoctorControl).Assembly.GetName().Version.ToString(3);
+            var name = SafeFileName(string.Format("SolutionCompare_{0}_{1:yyyyMMdd-HHmm}", lastCompare.SolutionName, lastCompare.RanOn));
+            using (var dlg = new SaveFileDialog
+            {
+                FileName = name + "." + format,
+                Filter = format == "html" ? "HTML report (*.html)|*.html" : "CSV (*.csv)|*.csv"
+            })
+            {
+                if (dlg.ShowDialog() != DialogResult.OK) return;
+                var content = format == "html"
+                    ? CompareReport.Html(lastCompare, lastCompareDev, lastCompareTarget, version)
+                    : CompareReport.Csv(lastCompare, lastCompareDev, lastCompareTarget);
+                try { File.WriteAllText(dlg.FileName, content, new UTF8Encoding(true)); }
+                catch (Exception ex) { MessageBox.Show("Could not save the report:\r\n" + ex.Message, "Error"); return; }
+                SetStatus("Report saved: " + dlg.FileName);
+                if (MessageBox.Show("Report saved.\r\n\r\n" + dlg.FileName + "\r\n\r\nOpen it now?", "Deployment Doctor",
+                        MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
+                {
+                    try { System.Diagnostics.Process.Start(dlg.FileName); }
+                    catch (Exception ex) { MessageBox.Show("Could not open the file:\r\n" + ex.Message, "Error"); }
+                }
+            }
+        }
+
         private static string SafeFileName(string s)
         {
             foreach (var c in Path.GetInvalidFileNameChars()) s = s.Replace(c, '_');
@@ -582,12 +576,13 @@ namespace DeploymentDoctor
                 "Deployment Doctor  v" + version.ToString(3) + "\r\n" +
                 "Created by Ankit Rana\r\n\r\n" +
                 "Explains why a change deployed with a managed solution does not show in the target environment. " +
-                "Works for forms, views, web resources and processes (classic workflows, business rules, actions, cloud flows).\r\n\r\n" +
+                "Works for forms, views, site maps, ribbons, web resources, processes (classic workflows, business rules, actions, cloud flows), environment variables, connection references, plug-in steps and plug-in assemblies.\r\n\r\n" +
                 "Connect the main connection to the TARGET (UAT/Prod), and optionally a second connection to DEV (source). " +
                 "It checks: publish state and solution membership in Dev, solution membership and version in Target, " +
                 "solution layers (unmanaged layer, other managed solutions above yours, staged upgrades), " +
-                "the content in Dev vs Target vs your solution's layer, plus type checks: form state, apps, security roles and order; " +
-                "view state and default view; who uses a web resource; flow on/off, connection references and duplicate copies.\r\n\r\n" +
+                "the content in Dev vs Target vs your solution's layer, plus type checks: form health (is the form really corrupted, or only broken references?), same-name forms, form state, apps, security roles and order; " +
+                "view state and default view; who uses a web resource; flow on/off, connection references and duplicate copies; environment variable values; whether a connection reference has a connection; whether a plug-in step is enabled and which assembly version it runs.\r\n\r\n" +
+                "Compare whole solution: pick a solution and compare every component between Dev and Target (content, on/off state, unpublished changes, items removed in Dev), then open any component in the doctor. Not compared yet: tables, columns, choices, security roles, model-driven apps and dashboards.\r\n\r\n" +
                 "The tool only reads, except when you click a Fix button and confirm. Each fix tells you exactly what it changes and where.",
                 "About - Deployment Doctor", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
@@ -610,11 +605,14 @@ namespace DeploymentDoctor
 
             targetDetail = detail;
             solutions = new List<SolutionItem>(); tables = new List<TableItem>(); itemsByKind.Clear();
-            solutionIds = null; lastDiagnosis = null;
-            cboSolution.Items.Clear(); cboGroup.Items.Clear(); cboComponent.Items.Clear(); cboComponent.Text = "";
-            gridFindings.DataSource = null; gridLayers.DataSource = null;
+            solutionIds = null; lastDiagnosis = null; lastCompare = null; lastItem = null; lastSolItem = null;
+            compareView.ShowEmpty();
+            picker.Solution.Items.Clear(); picker.Group.Items.Clear(); picker.Component.Items.Clear(); picker.Component.Text = "";
+            results.ShowEmpty();
             ddExport.Enabled = false;
-            lblTarget.Text = "Target: " + (detail == null ? "(not connected)" : detail.ConnectionName);
+            btnExpand.Enabled = false;
+            UpdateDiagnoseEnabled();
+            lblTarget.Text = "\u25CF Target: " + (detail == null ? "not connected" : detail.ConnectionName);
             lblTarget.ForeColor = detail == null ? Color.DarkRed : Color.DarkGreen;
 
             base.UpdateConnection(newService, detail, actionName, parameter);
@@ -634,10 +632,11 @@ namespace DeploymentDoctor
             }
 
             var dev = DevDetail;
-            lblDev.Text = dev == null ? "Dev: (optional, not connected)" : "Dev: " + dev.ConnectionName;
-            lblDev.ForeColor = dev == null ? Color.DimGray : Color.DarkGreen;
-            btnDisconnectDev.Enabled = dev != null;
-            btnConnectDev.Text = dev == null ? "Connect Dev (source)..." : "Change Dev...";
+            ddDev.Text = dev == null ? "\u25CF Dev: optional" : "\u25CF Dev: " + dev.ConnectionName;
+            ddDev.ForeColor = dev == null ? Color.DimGray : Color.DarkGreen;
+            miDisconnectDev.Enabled = dev != null;
+            miConnectDev.Text = dev == null ? "Connect Dev (source)..." : "Change Dev...";
+            UpdateDiagnoseEnabled();
         }
     }
 }

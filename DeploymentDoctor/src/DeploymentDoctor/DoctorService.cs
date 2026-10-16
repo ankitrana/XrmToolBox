@@ -32,7 +32,7 @@ namespace DeploymentDoctor
             return svc.RetrieveMultiple(q).Entities.Select(ToSolution).ToList();
         }
 
-        private static SolutionItem FindSolution(IOrganizationService svc, string uniqueName)
+        internal static SolutionItem FindSolution(IOrganizationService svc, string uniqueName)
         {
             var q = new QueryExpression("solution") { ColumnSet = new ColumnSet("friendlyname", "uniquename", "ismanaged", "version") };
             q.Criteria.AddCondition("uniquename", ConditionOperator.Equal, uniqueName);
@@ -72,7 +72,19 @@ namespace DeploymentDoctor
             var fullTables = new HashSet<Guid>();
             var q = new QueryExpression("solutioncomponent") { ColumnSet = new ColumnSet("objectid", "componenttype", "rootcomponentbehavior") };
             q.Criteria.AddCondition("solutionid", ConditionOperator.Equal, solutionId);
-            q.Criteria.AddCondition("componenttype", ConditionOperator.In, h.ComponentType, TableComponentType);
+            if (h.ComponentType >= 0) q.Criteria.AddCondition("componenttype", ConditionOperator.In, h.ComponentType, TableComponentType);
+
+            if (h.ComponentType < 0)
+            {
+                // No fixed component type number: match the solution's components by id
+                var known = new HashSet<Guid>(items.Select(i => i.Id));
+                foreach (var e in ComponentHandler.All(svc, q))
+                {
+                    var id = e.GetAttributeValue<Guid>("objectid");
+                    if (known.Contains(id)) ids.Add(id);
+                }
+                return ids;
+            }
 
             foreach (var e in ComponentHandler.All(svc, q))
             {
@@ -140,12 +152,10 @@ namespace DeploymentDoctor
                                 Label = "Publish in Dev",
                                 OnDev = true,
                                 WhatItDoes = "Publish " + h.PublishScope(item) + " in Dev (PublishXml)." +
-                                             (item.Kind == ComponentKind.WebResource ? "" : " Other unpublished changes on that table in Dev are published too."),
+                                             h.PublishWarning(item),
                                 Run = s => h.Publish(s, item),
                                 Undo = "No, publishing can't be undone, but it only affects Dev. Target changes only when you export and import again.",
-                                Advice = (item.Kind == ComponentKind.WebResource
-                                            ? "Make sure the saved file in Dev is the version you want to ship."
-                                            : "Other developers may have unfinished, unpublished changes on table '" + item.Group + "' in Dev; they get published too. Check with your team first.") +
+                                Advice = h.PublishAdvice(item) +
                                          " After publishing: increase the solution version, export as managed and import into Target.",
                                 ManualSteps = "1. Open make.powerapps.com and switch to the Dev environment.\r\n" +
                                               "2. Solutions > " + (sol == null ? "your solution" : "'" + sol.FriendlyName + "'") + ".\r\n" +
@@ -184,7 +194,7 @@ namespace DeploymentDoctor
                                 (m == Membership.TableWithoutIt ? " (the table is in the solution, but without this " + lower + ")." : ".") +
                                 " Exports of this solution don't carry it.",
                                 "Add it to the solution in Dev, bump the version, export and import again.",
-                                devSol.IsManaged ? null : new FixAction
+                                devSol.IsManaged || h.ComponentType < 0 ? null : new FixAction
                                 {
                                     Label = "Add to Dev solution",
                                     OnDev = true,
@@ -211,6 +221,9 @@ namespace DeploymentDoctor
 
             if (tgt == null)
             {
+                // Not in Target: look for the usual reasons (e.g. a recreated form with the same name) and, for forms, check Dev's XML
+                var missingCtx = new CheckContext { Target = target, Dev = dev, Item = item, TargetSnap = null, DevSnap = devSnap, Diagnosis = d };
+                Try(f, label + " checks", () => h.OnMissingInTarget(missingCtx));
                 Finish(d, h);
                 return d;
             }
@@ -298,12 +311,14 @@ namespace DeploymentDoctor
                 if (active != null)
                 {
                     f.Add(new Finding(Severity.Problem, "Unmanaged layer in Target",
-                        "Someone customized this " + lower + " directly in Target" + (active.Written.HasValue ? " (" + active.Written.Value.ToString("yyyy-MM-dd HH:mm") + ")" : "") +
+                        "Someone customized this " + lower + " directly in Target" + (active.Written.HasValue ? " (unmanaged layer last changed " + active.Written.Value.ToString("yyyy-MM-dd HH:mm") + ")" : "") +
                         ". The unmanaged (Active) layer sits on top of every managed layer and overrides " +
                         (item.Kind == ComponentKind.Form ? "the parts it changed" : "what your solution deployed") +
                         (string.IsNullOrEmpty(active.Changes) ? "." : ": " + TextDiff.Shorten(active.Changes, 300)),
-                        "If the Target change is wanted, make it in Dev first. Then remove the unmanaged layer in Target.",
-                        new FixAction
+                        h.SupportsRemoveActive
+                            ? "If the Target change is wanted, make it in Dev first. Then remove the unmanaged layer in Target."
+                            : h.RemoveActiveAdvice(item),
+                        !h.SupportsRemoveActive ? null : new FixAction
                         {
                             Label = "Remove unmanaged layer",
                             OnDev = false,
@@ -394,6 +409,13 @@ namespace DeploymentDoctor
                 }
             }
 
+            // What did the unmanaged layer change? Shown under the "Unmanaged layer in Target" finding.
+            if (active != null && tgt != null)
+                Try(f, "Unmanaged changes", () =>
+                {
+                    var uf = f.FirstOrDefault(x => x.Check == "Unmanaged layer in Target" && x.Severity == Severity.Problem);
+                    if (uf != null) { uf.Details = UnmanagedDetails(target, h, d, active, tgt); uf.DetailsTitle = "What the unmanaged layer changed"; }
+                });
             // 7. Unpublished changes in target
             if (h.Publishable && h.UnpublishedDiffers(tgt))
                 f.Add(new Finding(Severity.Warning, "Unpublished changes in Target",
@@ -408,11 +430,66 @@ namespace DeploymentDoctor
             return d;
         }
 
+        /// <summary>The "what did the unmanaged change do" lines: changed attributes, then what differs from the managed layer below.</summary>
+        private static string UnmanagedDetails(IOrganizationService target, ComponentHandler h, Diagnosis d, LayerRow active, Snapshot tgt)
+        {
+            const int Max = 15;
+            var lines = new List<string>();
+
+            // When: the unmanaged layer's own time is not changed by importing a managed solution, so it stays the time of the
+            // last customization made directly in Target. Dataverse has no "first added" time for a layer.
+            if (active.Written.HasValue)
+            {
+                lines.Add("Unmanaged layer last changed: " + active.Written.Value.ToString("yyyy-MM-dd HH:mm") + " (your computer's time). Dataverse keeps only the latest time, not when the layer was first added.");
+                var deployed = d.Layers.FirstOrDefault(l => l.Note == "Your solution" && l.Written.HasValue)
+                               ?? d.Layers.SkipWhile(l => l != active).Skip(1).FirstOrDefault(l => l.Written.HasValue && !l.Solution.EndsWith("_Upgrade", StringComparison.OrdinalIgnoreCase));
+                if (deployed != null)
+                    lines.Add("Managed layer '" + deployed.Solution + "' was last written (deployed) at " + deployed.Written.Value.ToString("yyyy-MM-dd HH:mm") + ": the unmanaged change is " +
+                              (active.Written.Value > deployed.Written.Value ? "NEWER than that deployment (made after it)." : "OLDER than that deployment, so it was already there and the deployment did not remove it."));
+            }
+            if (!string.IsNullOrEmpty(active.Changes))
+                lines.Add("Parts changed (reported by Dataverse): " + TextDiff.Shorten(active.Changes, 300));
+
+            // Compare the unmanaged layer with the managed layer right below it
+            var below = d.Layers.SkipWhile(l => l != active).Skip(1)
+                         .FirstOrDefault(l => !string.IsNullOrEmpty(l.ComponentJson) && !l.Solution.EndsWith("_Upgrade", StringComparison.OrdinalIgnoreCase));
+            List<string> diff = null;
+            if (below != null && !string.IsNullOrEmpty(active.ComponentJson))
+            {
+                var a = h.FromLayer(active.ComponentJson); a.Record = tgt.Record;
+                var b = h.FromLayer(below.ComponentJson); b.Record = tgt.Record;
+                if (h.LayerContentUsable(a) && h.LayerContentUsable(b))
+                    diff = h.Compare(b, a, "'" + below.Solution + "'", "unmanaged");
+            }
+
+            string intro;
+            if (diff != null && diff.Count > 0)
+                intro = "Compared with the managed layer below ('" + below.Solution + "'), the unmanaged layer changed:";
+            else if (d.Differences != null && d.Differences.Count > 0)
+            {
+                diff = d.Differences;
+                intro = "Dataverse did not store the content of the unmanaged layer, so this is Target compared with Dev (it includes the effect of the unmanaged change):";
+            }
+            else if (diff != null)
+                intro = "The unmanaged layer's content matches the managed layer below ('" + below.Solution + "'): no difference found in what is compared.";
+            else
+                intro = "Dataverse did not store the content of the unmanaged layer, so the exact change can't be listed. Open 'See solution layers' on the Active layer in the maker portal, or connect Dev to compare.";
+
+            lines.Add(intro);
+            if (diff != null)
+            {
+                foreach (var x in diff.Take(Max)) lines.Add("  \u2022  " + x.Replace("\r\n", "\r\n     "));
+                if (diff.Count > Max) lines.Add("  ... and " + (diff.Count - Max) + " more (see Evidence > differences)");
+            }
+            return string.Join("\r\n", lines);
+        }
         private static void Finish(Diagnosis d, ComponentHandler h)
         {
             // Stable sort: problems first, keeping the order the checks ran in (most fundamental cause first)
             d.Findings = d.Findings.OrderBy(x => x.Severity).ToList();
-            var first = d.Findings.FirstOrDefault(x => x.Severity == Severity.Problem);
+            // "Target vs Dev" only describes the symptom (its text says the other findings explain why): prefer a real cause
+            var first = d.Findings.FirstOrDefault(x => x.Severity == Severity.Problem && x.Check != "Target vs Dev")
+                        ?? d.Findings.FirstOrDefault(x => x.Severity == Severity.Problem);
             var warnings = d.Findings.Count(x => x.Severity == Severity.Warning);
             var lower = h.Label.ToLowerInvariant();
             d.Verdict = first != null
@@ -428,6 +505,41 @@ namespace DeploymentDoctor
             d.NextStep = step != null
                 ? step.HowToFix + (step.Action != null ? " (or click '" + step.Action.Label + "')" : "")
                 : h.WhenIdentical;
+
+            d.VerdictFinding = first;
+            if (first != null)
+            {
+                d.VerdictTitle = "Most likely cause: " + first.Check;
+                d.VerdictDetail = first.Result;
+                d.VerdictSeverity = Severity.Problem;
+            }
+            else if (d.TargetMatchesDev)
+            {
+                d.VerdictTitle = "Deployment worked";
+                d.VerdictDetail = "Target's published " + lower + " is identical to Dev." +
+                                  (warnings > 0 ? " Check the " + warnings + " warning(s) below for why users might still see something else." : "");
+                d.VerdictSeverity = Severity.Ok;
+            }
+            else if (warnings > 0)
+            {
+                d.VerdictTitle = "No definite cause found";
+                d.VerdictDetail = "Review the " + warnings + " warning(s) below.";
+                d.VerdictSeverity = Severity.Warning;
+            }
+            else
+            {
+                d.VerdictTitle = "No problem found";
+                d.VerdictDetail = "Nothing overrides your solution in Target.";
+                d.VerdictSeverity = Severity.Ok;
+            }
+
+            // "Is the form corrupted?" is answered in the first rows, whatever their colour (done after the verdict
+            // is chosen, so a broken reference doesn't outrank an earlier, more fundamental cause)
+            var health = d.Findings.Where(x => x.IsHealth).ToList();
+            if (health.Count > 0)
+            {
+                d.Findings = health.Concat(d.Findings.Where(x => !health.Contains(x))).ToList();
+            }
         }
 
         // ------------------------------------------------------------ Helpers
@@ -437,7 +549,7 @@ namespace DeploymentDoctor
             var q = new QueryExpression("solutioncomponent") { ColumnSet = new ColumnSet("componenttype") };
             q.Criteria.AddCondition("solutionid", ConditionOperator.Equal, solutionId);
             q.Criteria.AddCondition("objectid", ConditionOperator.Equal, item.Id);
-            q.Criteria.AddCondition("componenttype", ConditionOperator.Equal, h.ComponentType);
+            if (h.ComponentType >= 0) q.Criteria.AddCondition("componenttype", ConditionOperator.Equal, h.ComponentType);
             if (svc.RetrieveMultiple(q).Entities.Count > 0) return Membership.Direct;
             if (!h.IncludedWithTable(item)) return Membership.None;
 
@@ -451,7 +563,7 @@ namespace DeploymentDoctor
             return ComponentHandler.OptionValue(row, "rootcomponentbehavior", 0) == 0 ? Membership.ViaTable : Membership.TableWithoutIt;
         }
 
-        private static List<LayerRow> GetLayers(IOrganizationService svc, Guid id, string layerName)
+        internal static List<LayerRow> GetLayers(IOrganizationService svc, Guid id, string layerName)
         {
             var q = new QueryExpression("msdyn_componentlayer")
             {
@@ -470,7 +582,7 @@ namespace DeploymentDoctor
                     Solution = e.GetAttributeValue<string>("msdyn_solutionname"),
                     Publisher = e.GetAttributeValue<string>("msdyn_publishername"),
                     // Dataverse returns 1900-01-01 when it did not record a time
-                    Written = time.HasValue && time.Value.Year > 1900 ? time : null,
+                    Written = time.HasValue && time.Value.Year > 1900 ? (time.Value.Kind == DateTimeKind.Utc ? time.Value.ToLocalTime() : time.Value) : (DateTime?)null,
                     Changes = e.GetAttributeValue<string>("msdyn_changes"),
                     ComponentJson = e.GetAttributeValue<string>("msdyn_componentjson")
                 };
@@ -500,6 +612,12 @@ namespace DeploymentDoctor
                 case ComponentKind.Form: return "Table > '" + item.Group + "' > Select components > Forms";
                 case ComponentKind.View: return "Table > '" + item.Group + "' > Select components > Views";
                 case ComponentKind.WebResource: return "More > Web resource";
+                case ComponentKind.EnvironmentVariable: return "Environment variable";
+                case ComponentKind.ConnectionReference: return "More > Connection reference";
+                case ComponentKind.PluginStep: return "More > Developer > Plug-in step";
+                case ComponentKind.PluginAssembly: return "More > Developer > Plug-in assembly";
+                case ComponentKind.SiteMap: return "App (a site map is added together with its model-driven app)";
+                case ComponentKind.Ribbon: return item.Group == ProcessHandler.NoTable ? "More > Client extensions > Application ribbons" : "Table > '" + item.Group + "' (its command bar is part of the table)";
                 default: return item.SubTypeCode == 5 ? "Automation > Cloud flow" : "Automation > Process";
             }
         }

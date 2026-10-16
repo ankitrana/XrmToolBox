@@ -87,7 +87,12 @@ namespace DeploymentDoctor
             sb.AppendLine();
             sb.AppendLine("All checks:");
             foreach (var f in d.Findings)
+            {
                 sb.AppendLine(string.Format("  [{0}] {1}: {2}", f.Severity, f.Check, f.Result));
+                if (!string.IsNullOrEmpty(f.Details))
+                    foreach (var line in f.Details.Replace("\r\n", "\n").Split('\n'))
+                        sb.AppendLine("      " + line);
+            }
 
             sb.AppendLine();
             sb.AppendLine("Solution layers in Target (top first): " + string.Join(" > ", d.Layers.Select(l => l.Solution)));
@@ -186,7 +191,8 @@ namespace DeploymentDoctor
             sb.Append("<h2>All checks</h2><div class=\"scroll\"><table class=\"grid\"><tr><th>Result</th><th>Check</th><th>What was found</th><th>How to fix</th></tr>");
             foreach (var f in d.Findings)
                 sb.Append("<tr class=\"").Append(f.Severity).Append("\"><td><span class=\"badge ").Append(f.Severity).Append("\">").Append(f.Severity)
-                  .Append("</span></td><td>").Append(H(f.Check)).Append("</td><td>").Append(H(f.Result)).Append("</td><td>")
+                  .Append("</span></td><td>").Append(H(f.Check)).Append("</td><td>").Append(H(f.Result))
+                  .Append(string.IsNullOrEmpty(f.Details) ? "" : "<div style=\"margin-top:6px;color:#5a6472;white-space:pre-line\"><b>" + H(f.DetailsTitle) + "</b>\n" + H(f.Details) + "</div>").Append("</td><td>")
                   .Append(f.Severity == Severity.Ok ? "" : H(f.HowToFix)).Append("</td></tr>");
             sb.Append("</table></div>");
 
